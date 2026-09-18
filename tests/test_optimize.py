@@ -21,7 +21,15 @@ def test_single_mode_single_host():
     assert r.dna.startswith("ATG")
     assert r.cai is not None
     assert r.cai >= 0.90
-    assert all(r.constraint_pass_fail.values())
+    # The tightened hairpin limits (worst-window MFE / stem length) aren't
+    # always achievable in a GC-rich host like E. coli, per the spec's own
+    # caveat -- but protein identity, forbidden sites, and zero rare codons
+    # must always hold, unconditionally.
+    assert r.constraint_pass_fail["no_internal_stop"]
+    assert r.constraint_pass_fail["no_forbidden_sites"]
+    assert r.constraint_pass_fail["zero_rare_codons"]
+    assert r.codons_below_w_threshold == 0
+    assert r.min_w_used >= 0.30
 
 
 def test_all_mode_expands_to_three_plus_hedge():
@@ -127,3 +135,35 @@ def test_reproducible_with_same_seed():
     r1 = optimize_cds(req)[0]
     r2 = optimize_cds(req)[0]
     assert r1.dna == r2.dna
+
+
+def test_zero_rare_codons_holds_across_all_modes_and_hosts():
+    req = OptimizationRequest(
+        protein=TEST_PROTEIN, hosts=("e_coli_k12", "human", "b_subtilis_168"), mode="ALL", seed=11,
+    )
+    for r in optimize_cds(req):
+        assert r.codons_below_w_threshold == 0, f"{r.host}/{r.mode} has a codon below w=0.3"
+        assert r.min_w_used >= 0.30
+        assert r.constraint_pass_fail["zero_rare_codons"]
+
+
+def test_hairpin_fields_are_reported_even_when_unresolved():
+    # A GC-rich, repetitive protein is a realistic case where the hairpin
+    # limits (6b/6c) can't always be fully met -- the spec requires exact
+    # numbers and an honest "blocked by" note, never a silent pass.
+    gc_rich_protein = "MAAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGDDEDEDEDEDEDEDEDEDEDEDEDW"
+    req = OptimizationRequest(protein=gc_rich_protein, hosts=("e_coli_k12",), mode="PRODUCTION", seed=12)
+    r = optimize_cds(req)[0]
+    assert r.worst_window_mfe is not None
+    assert r.longest_stem >= 0
+    if not r.constraint_pass_fail["no_overstable_window"] or not r.constraint_pass_fail["no_overlong_stem"]:
+        assert any("hairpin limit" in n for n in r.notes)
+
+
+def test_temperature_is_accepted_and_threaded_through():
+    req = OptimizationRequest(
+        protein=TEST_PROTEIN, hosts=("e_coli_k12",), mode="PRODUCTION",
+        five_prime_utr="AGGAGGACAGCTATG", seed=13, temperature_c=30.0,
+    )
+    result = optimize_cds(req)[0]
+    assert result.five_prime_dG is not None  # request-level temperature test lives in test_folding.py

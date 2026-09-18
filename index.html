@@ -260,6 +260,10 @@
         <label for="optSeed">Random seed (optional)</label>
         <input id="optSeed" type="number" placeholder="leave blank for a fresh draw" />
       </div>
+      <div class="field">
+        <label for="optTemperature">RNA folding temperature (&deg;C)</label>
+        <input id="optTemperature" type="number" value="37" step="0.5" placeholder="37 (use induction temp if known)" />
+      </div>
     </div>
 
     <div class="row">
@@ -482,6 +486,7 @@ const optHostsEl = document.getElementById("optHosts");
 const optModeEl = document.getElementById("optMode");
 const optNativeOrganismEl = document.getElementById("optNativeOrganism");
 const optSeedEl = document.getElementById("optSeed");
+const optTemperatureEl = document.getElementById("optTemperature");
 const optUtrEl = document.getElementById("optUtr");
 const optNTagEl = document.getElementById("optNTag");
 const optCTagEl = document.getElementById("optCTag");
@@ -535,7 +540,14 @@ function optRenderCard(seq) {
       <div class="item"><div class="k">CAI</div><div class="v">${seq.cai !== null ? fmtNum(seq.cai, 3) : "unavailable"}</div></div>
       <div class="item"><div class="k">Expr-weighted CAI</div><div class="v">${seq.expression_weighted_cai !== null ? fmtNum(seq.expression_weighted_cai, 3) : "unavailable"}</div></div>
       <div class="item"><div class="k">tAI</div><div class="v">${seq.tai !== null ? fmtNum(seq.tai, 3) : "unavailable"}</div></div>
-      <div class="item"><div class="k">5' dG</div><div class="v">${seq.five_prime_dG !== null ? fmtNum(seq.five_prime_dG, 2) + " kcal/mol" : "unavailable"}</div></div>
+      <div class="item"><div class="k">Min w used</div><div class="v">${fmtNum(seq.min_w_used, 3)}</div></div>
+      <div class="item"><div class="k">Codons w&lt;0.3</div><div class="v">${seq.codons_below_w_threshold}</div></div>
+      <div class="item"><div class="k">5' dG (-20/+40)</div><div class="v">${seq.five_prime_dG !== null ? fmtNum(seq.five_prime_dG, 2) + " kcal/mol" : "unavailable"}</div></div>
+      <div class="item"><div class="k">Init region unpaired</div><div class="v">${seq.init_region_unpaired === null ? "unavailable" : (seq.init_region_unpaired ? "yes" : "NO")}</div></div>
+      <div class="item"><div class="k">Worst 60nt window MFE</div><div class="v">${seq.worst_window_mfe !== null ? fmtNum(seq.worst_window_mfe, 2) + " kcal/mol" : "unavailable"}</div></div>
+      <div class="item"><div class="k">Longest stem</div><div class="v">${seq.longest_stem} bp</div></div>
+      <div class="item"><div class="k">Terminator-like motifs</div><div class="v">${seq.terminator_motifs.length}</div></div>
+      <div class="item"><div class="k">Inverted repeats</div><div class="v">${seq.inverted_repeats.length}</div></div>
       <div class="item"><div class="k">GC% overall</div><div class="v">${(seq.gc_overall * 100).toFixed(1)}%</div></div>
       <div class="item"><div class="k">GC% window range</div><div class="v">${(seq.gc_window_min * 100).toFixed(1)}&ndash;${(seq.gc_window_max * 100).toFixed(1)}%</div></div>
       <div class="item"><div class="k">Repeated 15-mers</div><div class="v">${seq.repeated_15mers}</div></div>
@@ -639,6 +651,7 @@ async function optSubmit() {
         structural_regions,
         hedge: optHedgeEl.checked,
         seed: optSeedEl.value === "" ? null : optSeedEl.value,
+        temperature: optTemperatureEl.value === "" ? 37 : optTemperatureEl.value,
       }),
     });
     const data = await res.json();

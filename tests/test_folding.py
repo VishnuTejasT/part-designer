@@ -25,3 +25,18 @@ def test_initiation_dG_is_a_float_when_available():
 
 def test_initiation_dG_none_for_empty_window():
     assert folding.initiation_dG("", "") is None
+
+
+def test_temperature_changes_mfe_for_a_fixed_sequence():
+    # A real hairpin-forming sequence: colder folding must never be less
+    # stable (less negative dG) than hotter folding of the *same* sequence.
+    seq = "GGGGGGGAAAACCCCCCC"
+    _structure_cold, energy_cold = folding.mfe(seq, temperature_c=4.0)
+    _structure_hot, energy_hot = folding.mfe(seq, temperature_c=60.0)
+    assert energy_cold <= energy_hot
+
+
+def test_initiation_unpaired_ok_returns_bool_or_none():
+    result = folding.initiation_unpaired_ok("ATGAAACTGGTCTAA", "AGGAGGACAGCTATG")
+    assert result in (True, False)
+    assert folding.initiation_unpaired_ok("", "") is None

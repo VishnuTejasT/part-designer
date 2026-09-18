@@ -105,6 +105,14 @@ def optimize():
     except (KeyError, TypeError):
         return jsonify({"error": "structural_regions must be a list of {start, end, kind}"}), 400
 
+    raw_temperature = payload.get("temperature")
+    temperature_c = 37.0
+    if raw_temperature not in (None, ""):
+        try:
+            temperature_c = float(raw_temperature)
+        except (TypeError, ValueError):
+            return jsonify({"error": "temperature must be a number"}), 400
+
     try:
         req = OptimizationRequest(
             protein=protein,
@@ -118,6 +126,7 @@ def optimize():
             structural_regions=regions,
             hedge=bool(payload.get("hedge", False)),
             seed=seed,
+            temperature_c=temperature_c,
         )
         results = optimize_cds(req)
     except (ProteinSequenceError, CodonUsageError, OptimizationError, ValueError) as exc:

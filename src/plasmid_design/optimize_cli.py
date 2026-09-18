@@ -62,6 +62,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help='JSON list, e.g. \'[{"start":40,"end":48,"kind":"linker"}]\'.',
     )
     parser.add_argument("--structural-regions-file", default=None, help="Path to a JSON file with the same shape as --structural-regions.")
+    parser.add_argument(
+        "--temperature", type=float, default=37.0,
+        help="RNA folding temperature in Celsius (default: 37; use the induction temperature if known).",
+    )
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility.")
     parser.add_argument("--json-out", help="Optional path to also write the full structured report as JSON.")
     parser.add_argument("--quiet", action="store_true", help="Suppress the human-readable report on stdout.")
@@ -125,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             structural_regions=regions,
             hedge=args.hedge,
             seed=args.seed,
+            temperature_c=args.temperature,
         )
         results = optimize_cds(request)
     except (ProteinSequenceError, CodonUsageError, OptimizationError, ValueError) as exc:

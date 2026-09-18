@@ -26,15 +26,21 @@ def _result_dict(r: HostModeResult) -> dict:
         "expression_weighted_cai_note": r.expression_weighted_cai_note,
         "tai": r.tai,
         "tai_note": r.tai_note,
+        "min_w_used": r.min_w_used,
+        "codons_below_w_threshold": r.codons_below_w_threshold,
         "five_prime_dG": r.five_prime_dG,
         "five_prime_dG_note": r.five_prime_dG_note,
+        "init_region_unpaired": r.init_region_unpaired,
+        "worst_window_mfe": r.worst_window_mfe,
+        "longest_stem": r.longest_stem,
+        "terminator_motifs": r.terminator_motifs,
+        "inverted_repeats": r.inverted_repeats,
         "gc_overall": r.gc_overall,
         "gc_window_min": r.gc_window_min,
         "gc_window_max": r.gc_window_max,
         "repeated_15mers": r.repeated_15mers,
         "forbidden_site_hits": r.forbidden_site_hits,
         "motif_hits": r.motif_hits,
-        "rare_codon_clusters": r.rare_codon_clusters,
         "pause_site_count": r.pause_site_count,
         "constraint_pass_fail": r.constraint_pass_fail,
         "overall_pass": all(r.constraint_pass_fail.values()),
@@ -115,12 +121,20 @@ def format_optimization_report_text(report: dict) -> str:
         add(f"Expression-weighted CAI: {ew_str}")
         tai_str = f"{seq['tai']:.3f}" if seq["tai"] is not None else f"unavailable ({seq['tai_note']})"
         add(f"tAI: {tai_str}")
+        add(f"Minimum w used: {seq['min_w_used']:.3f}   Codons with w<0.3: {seq['codons_below_w_threshold']}")
         dg_str = (
             f"{seq['five_prime_dG']:.2f} kcal/mol"
             if seq["five_prime_dG"] is not None
             else f"unavailable ({seq['five_prime_dG_note']})"
         )
-        add(f"5' initiation dG: {dg_str}")
+        add(f"5' initiation dG (-20/+40): {dg_str}")
+        init_str = "unavailable" if seq["init_region_unpaired"] is None else ("yes" if seq["init_region_unpaired"] else "NO")
+        add(f"Initiation region (-15/+20) fully single-stranded: {init_str}")
+        worst_mfe_str = f"{seq['worst_window_mfe']:.2f} kcal/mol" if seq["worst_window_mfe"] is not None else "unavailable"
+        add(f"Worst 60nt window MFE: {worst_mfe_str}")
+        add(f"Longest contiguous stem in any window: {seq['longest_stem']} bp")
+        add(f"Terminator-like motifs: {len(seq['terminator_motifs'])}")
+        add(f"Inverted repeats (>=8bp within 30nt): {len(seq['inverted_repeats'])}")
         add(
             f"GC%: overall {seq['gc_overall']*100:.1f}%  "
             f"window min {seq['gc_window_min']*100:.1f}%  "
@@ -129,7 +143,6 @@ def format_optimization_report_text(report: dict) -> str:
         add(f"Repeated 15-mers: {seq['repeated_15mers']}")
         add(f"Forbidden site hits: {seq['forbidden_site_hits'] or 'none'}")
         add(f"Cryptic/SD-like motif hits: {len(seq['motif_hits'])}")
-        add(f"Rare-codon clusters (3+ consecutive w<0.3): {len(seq['rare_codon_clusters'])}")
         add(f"Pause sites placed: {seq['pause_site_count']}")
         add()
         add("Constraint pass/fail:")
