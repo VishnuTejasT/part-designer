@@ -139,6 +139,22 @@
   .occ { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
   footer { color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
   footer a { color: var(--accent-dark); }
+  h2 { font-size: 1.25rem; margin: 40px 0 4px; }
+  .host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }
+  .host-grid label { display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 0.85rem; color: var(--ink); cursor: pointer; }
+  .host-grid input { width: auto; }
+  textarea.small { min-height: 70px; }
+  .opt-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-top: 14px; }
+  .opt-card h3 { margin: 0 0 8px; font-size: 1rem; }
+  .opt-card .seq-box { font-size: 0.78rem; }
+  .kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 10px 0; }
+  .kv-grid .item { background: #f0f3f1; border-radius: 8px; padding: 8px 10px; }
+  .kv-grid .item .k { font-size: 0.7rem; text-transform: uppercase; color: var(--muted); }
+  .kv-grid .item .v { font-size: 0.92rem; font-weight: 600; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .notes-list { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .notes-list div { margin-top: 3px; }
+  .caveat { font-style: italic; color: var(--muted); margin-top: 18px; font-size: 0.88rem; }
 </style>
 </head>
 <body>
@@ -212,8 +228,96 @@
     </div>
   </div>
 
+  <h2>Codon Optimization Engine</h2>
+  <p class="subtitle">Multi-host, mode-driven optimization: CAI, tAI (where sourced), mRNA-folding-aware initiation design, and hard sequence constraints.</p>
+
+  <div class="panel">
+    <label for="optProtein">Amino acid sequence (one-letter codes)</label>
+    <textarea id="optProtein" placeholder="Paste a protein sequence..."></textarea>
+
+    <div class="row">
+      <div class="field">
+        <label>Host chassis (select one or more)</label>
+        <div class="host-grid" id="optHosts"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="optMode">Mode</label>
+        <select id="optMode">
+          <option value="BALANCED" selected>BALANCED</option>
+          <option value="PRODUCTION">PRODUCTION</option>
+          <option value="FOLDING">FOLDING</option>
+          <option value="ALL">ALL</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="optNativeOrganism">Native organism (for FOLDING harmonization, optional)</label>
+        <select id="optNativeOrganism"><option value="">(de novo / none)</option></select>
+      </div>
+      <div class="field">
+        <label for="optSeed">Random seed (optional)</label>
+        <input id="optSeed" type="number" placeholder="leave blank for a fresh draw" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="optUtr">5' UTR / RBS / Kozak (upstream of CDS, optional)</label>
+        <input id="optUtr" type="text" placeholder="e.g. AGGAGGACAGCTATG..." />
+      </div>
+      <div class="field">
+        <label for="optNTag">N-terminal tag (AA sequence, optional)</label>
+        <input id="optNTag" type="text" placeholder="e.g. MHHHHHH" />
+      </div>
+      <div class="field">
+        <label for="optCTag">C-terminal tag (AA sequence, optional)</label>
+        <input id="optCTag" type="text" placeholder="e.g. GSHHHHHH" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="optForbidden">Forbidden enzymes beyond BsaI/BsmBI/BbsI/SapI (Name:SITE, comma-separated)</label>
+        <input id="optForbidden" type="text" placeholder="e.g. EcoRV:GATATC,XhoI:CTCGAG" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="optRegions">Structural regions for FOLDING/BALANCED pause sites (optional JSON)</label>
+        <textarea id="optRegions" class="small" placeholder='[{"start":40,"end":48,"kind":"linker"}]'></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="optSubmit">Optimize</button>
+      <label class="checkbox-field">
+        <input type="checkbox" id="optHedge" />
+        HEDGE (also return a diversified variant)
+      </label>
+      <span class="hint" id="optStatusHint"></span>
+    </div>
+
+    <div class="error-box" id="optErrorBox"></div>
+  </div>
+
+  <div id="optResults" style="display: none;">
+    <div id="optCards"></div>
+
+    <div class="panel">
+      <label style="margin-bottom: 10px;">Summary</label>
+      <table>
+        <thead><tr><th>Host</th><th>Mode</th><th>CAI</th><th>tAI</th><th>5' dG</th><th>Result</th></tr></thead>
+        <tbody id="optSummaryBody"></tbody>
+      </table>
+      <p class="caveat" id="optCaveat"></p>
+    </div>
+  </div>
+
   <footer>
-    Codon usage data: Kazusa Codon Usage Database, E. coli K-12 (taxid 83333). Part 1 of a two-part iGEM tool &mdash; Part 2 (Part Finder) is not yet built.
+    Codon usage data: Kazusa Codon Usage Database, per-host tables (see sources above). tRNA gene-copy-number data: Genomic tRNA Database (GtRNAdb), sourced for a subset of hosts. mRNA folding: ViennaRNA. tAI: dos Reis, Savva &amp; Wernisch (2003, 2004).
   </footer>
 </div>
 
@@ -369,6 +473,192 @@ async function submit() {
 
 submitBtn.addEventListener("click", submit);
 loadOrganisms();
+
+// ---------------------------------------------------------------------
+// Codon Optimization Engine
+// ---------------------------------------------------------------------
+const optProteinEl = document.getElementById("optProtein");
+const optHostsEl = document.getElementById("optHosts");
+const optModeEl = document.getElementById("optMode");
+const optNativeOrganismEl = document.getElementById("optNativeOrganism");
+const optSeedEl = document.getElementById("optSeed");
+const optUtrEl = document.getElementById("optUtr");
+const optNTagEl = document.getElementById("optNTag");
+const optCTagEl = document.getElementById("optCTag");
+const optForbiddenEl = document.getElementById("optForbidden");
+const optRegionsEl = document.getElementById("optRegions");
+const optHedgeEl = document.getElementById("optHedge");
+const optSubmitBtn = document.getElementById("optSubmit");
+const optStatusHint = document.getElementById("optStatusHint");
+const optErrorBox = document.getElementById("optErrorBox");
+const optResults = document.getElementById("optResults");
+
+async function loadOptHosts() {
+  try {
+    const res = await fetch("/api/organisms");
+    const data = await res.json();
+    optHostsEl.innerHTML = "";
+    for (const org of data.organisms) {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = org;
+      if (org === data.default) input.checked = true;
+      label.appendChild(input);
+      label.append(org);
+      optHostsEl.appendChild(label);
+
+      const opt = document.createElement("option");
+      opt.value = org;
+      opt.textContent = org;
+      optNativeOrganismEl.appendChild(opt);
+    }
+  } catch (e) {
+    optHostsEl.innerHTML = '<label><input type="checkbox" value="e_coli_k12" checked>e_coli_k12</label>';
+  }
+}
+
+function fmtNum(v, digits) {
+  return v === null || v === undefined ? "-" : v.toFixed(digits);
+}
+
+function optRenderCard(seq) {
+  const card = document.createElement("div");
+  card.className = "opt-card";
+  const badges = Object.entries(seq.constraint_pass_fail)
+    .map(([name, passed]) => `<span class="status-pill ${passed ? "pass" : "fail"}">${passed ? "PASS" : "FAIL"} ${name}</span>`)
+    .join(" ");
+  const notes = (seq.notes || []).map((n) => `<div>&bull; ${n}</div>`).join("");
+  card.innerHTML = `
+    <h3>${seq.host} &mdash; ${seq.mode}</h3>
+    <div class="kv-grid">
+      <div class="item"><div class="k">CAI</div><div class="v">${seq.cai !== null ? fmtNum(seq.cai, 3) : "unavailable"}</div></div>
+      <div class="item"><div class="k">Expr-weighted CAI</div><div class="v">${seq.expression_weighted_cai !== null ? fmtNum(seq.expression_weighted_cai, 3) : "unavailable"}</div></div>
+      <div class="item"><div class="k">tAI</div><div class="v">${seq.tai !== null ? fmtNum(seq.tai, 3) : "unavailable"}</div></div>
+      <div class="item"><div class="k">5' dG</div><div class="v">${seq.five_prime_dG !== null ? fmtNum(seq.five_prime_dG, 2) + " kcal/mol" : "unavailable"}</div></div>
+      <div class="item"><div class="k">GC% overall</div><div class="v">${(seq.gc_overall * 100).toFixed(1)}%</div></div>
+      <div class="item"><div class="k">GC% window range</div><div class="v">${(seq.gc_window_min * 100).toFixed(1)}&ndash;${(seq.gc_window_max * 100).toFixed(1)}%</div></div>
+      <div class="item"><div class="k">Repeated 15-mers</div><div class="v">${seq.repeated_15mers}</div></div>
+      <div class="item"><div class="k">Pause sites placed</div><div class="v">${seq.pause_site_count}</div></div>
+    </div>
+    <div class="seq-box">${seq.dna}</div>
+    <div class="badge-row">${badges}</div>
+    ${notes ? `<div class="notes-list">${notes}</div>` : ""}
+  `;
+  return card;
+}
+
+function optRender(report) {
+  optErrorBox.style.display = "none";
+  optResults.style.display = "block";
+
+  const cardsEl = document.getElementById("optCards");
+  cardsEl.innerHTML = "";
+  for (const seq of report.sequences) {
+    cardsEl.appendChild(optRenderCard(seq));
+  }
+
+  const body = document.getElementById("optSummaryBody");
+  body.innerHTML = "";
+  for (const row of report.summary_table) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.host}</td>
+      <td>${row.mode}</td>
+      <td>${fmtNum(row.cai, 3)}</td>
+      <td>${fmtNum(row.tai, 3)}</td>
+      <td>${fmtNum(row.five_prime_dG, 2)}</td>
+      <td>${row.pass ? '<span class="status-pill pass">PASS</span>' : '<span class="status-pill fail">FAIL</span>'}</td>
+    `;
+    body.appendChild(tr);
+  }
+
+  document.getElementById("optCaveat").textContent = report.caveat;
+}
+
+async function optSubmit() {
+  const protein = optProteinEl.value.trim();
+  optErrorBox.style.display = "none";
+  if (!protein) {
+    optErrorBox.textContent = "Paste a protein sequence first.";
+    optErrorBox.style.display = "block";
+    return;
+  }
+  const hosts = Array.from(optHostsEl.querySelectorAll("input:checked")).map((el) => el.value);
+  if (!hosts.length) {
+    optErrorBox.textContent = "Select at least one host chassis.";
+    optErrorBox.style.display = "block";
+    return;
+  }
+
+  let forbidden_enzymes = [];
+  const forbiddenRaw = optForbiddenEl.value.trim();
+  if (forbiddenRaw) {
+    try {
+      forbidden_enzymes = forbiddenRaw.split(",").map((item) => {
+        const [name, pattern] = item.split(":");
+        if (!name || !pattern) throw new Error("bad entry");
+        return { name: name.trim(), pattern: pattern.trim().toUpperCase() };
+      });
+    } catch (e) {
+      optErrorBox.textContent = "Forbidden enzymes must look like Name:SITE, comma-separated.";
+      optErrorBox.style.display = "block";
+      return;
+    }
+  }
+
+  let structural_regions = [];
+  const regionsRaw = optRegionsEl.value.trim();
+  if (regionsRaw) {
+    try {
+      structural_regions = JSON.parse(regionsRaw);
+    } catch (e) {
+      optErrorBox.textContent = "Structural regions must be valid JSON.";
+      optErrorBox.style.display = "block";
+      return;
+    }
+  }
+
+  optSubmitBtn.disabled = true;
+  optStatusHint.textContent = "Optimizing... this can take a while for ALL mode / long proteins.";
+  optResults.style.display = "none";
+
+  try {
+    const res = await fetch("/api/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        protein,
+        hosts,
+        mode: optModeEl.value,
+        native_organism: optNativeOrganismEl.value || null,
+        five_prime_utr: optUtrEl.value.trim(),
+        n_tag: optNTagEl.value.trim(),
+        c_tag: optCTagEl.value.trim(),
+        forbidden_enzymes,
+        structural_regions,
+        hedge: optHedgeEl.checked,
+        seed: optSeedEl.value === "" ? null : optSeedEl.value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      optErrorBox.textContent = data.error || "Something went wrong.";
+      optErrorBox.style.display = "block";
+    } else {
+      optRender(data);
+    }
+  } catch (e) {
+    optErrorBox.textContent = "Network error: " + e.message;
+    optErrorBox.style.display = "block";
+  } finally {
+    optSubmitBtn.disabled = false;
+    optStatusHint.textContent = "";
+  }
+}
+
+optSubmitBtn.addEventListener("click", optSubmit);
+loadOptHosts();
 </script>
 </body>
 </html>

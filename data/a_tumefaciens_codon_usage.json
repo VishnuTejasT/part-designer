@@ -5,6 +5,7 @@
   "source_url": "http://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=176299&aa=1&style=N",
   "retrieved": "2026-09-18",
   "genetic_code": "Standard (NCBI translation table 1)",
+  "domain": "prokaryote",
   "cds_count_basis": 10705,
   "codon_count_basis": 3366071,
   "note": "Codon triplets are given as DNA (T substituted for U from the source table's RNA notation). 'fraction' is the relative usage of that codon among its synonymous codons for the same amino acid (i.e. it sums to 1.0 within each amino acid group) and is the weight used for frequency-weighted codon selection. Stop codons are grouped under amino_acid '*'.",

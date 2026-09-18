@@ -5,73 +5,394 @@
   "source_url": "http://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=83333&aa=1&style=N",
   "retrieved": "2026-09-17",
   "genetic_code": "Standard (NCBI translation table 1)",
+  "domain": "prokaryote",
   "cds_count_basis": 14,
   "codon_count_basis": 5122,
   "note": "Codon triplets are given as DNA (T substituted for U from the source table's RNA notation). 'fraction' is the relative usage of that codon among its synonymous codons for the same amino acid (i.e. it sums to 1.0 within each amino acid group) and is the weight used for frequency-weighted codon selection. Stop codons are grouped under amino_acid '*'.",
   "codons": {
-    "TTT": {"amino_acid": "F", "fraction": 0.57, "per_thousand": 19.7, "count": 101},
-    "TTC": {"amino_acid": "F", "fraction": 0.43, "per_thousand": 15.0, "count": 77},
-    "TTA": {"amino_acid": "L", "fraction": 0.15, "per_thousand": 15.2, "count": 78},
-    "TTG": {"amino_acid": "L", "fraction": 0.12, "per_thousand": 11.9, "count": 61},
-    "TCT": {"amino_acid": "S", "fraction": 0.11, "per_thousand": 5.7, "count": 29},
-    "TCC": {"amino_acid": "S", "fraction": 0.11, "per_thousand": 5.5, "count": 28},
-    "TCA": {"amino_acid": "S", "fraction": 0.15, "per_thousand": 7.8, "count": 40},
-    "TCG": {"amino_acid": "S", "fraction": 0.16, "per_thousand": 8.0, "count": 41},
-    "TAT": {"amino_acid": "Y", "fraction": 0.53, "per_thousand": 16.8, "count": 86},
-    "TAC": {"amino_acid": "Y", "fraction": 0.47, "per_thousand": 14.6, "count": 75},
-    "TAA": {"amino_acid": "*", "fraction": 0.64, "per_thousand": 1.8, "count": 9},
-    "TAG": {"amino_acid": "*", "fraction": 0.00, "per_thousand": 0.0, "count": 0},
-    "TGT": {"amino_acid": "C", "fraction": 0.42, "per_thousand": 5.9, "count": 30},
-    "TGC": {"amino_acid": "C", "fraction": 0.58, "per_thousand": 8.0, "count": 41},
-    "TGA": {"amino_acid": "*", "fraction": 0.36, "per_thousand": 1.0, "count": 5},
-    "TGG": {"amino_acid": "W", "fraction": 1.00, "per_thousand": 10.7, "count": 55},
-    "CTT": {"amino_acid": "L", "fraction": 0.12, "per_thousand": 11.9, "count": 61},
-    "CTC": {"amino_acid": "L", "fraction": 0.10, "per_thousand": 10.5, "count": 54},
-    "CTA": {"amino_acid": "L", "fraction": 0.05, "per_thousand": 5.3, "count": 27},
-    "CTG": {"amino_acid": "L", "fraction": 0.46, "per_thousand": 46.9, "count": 240},
-    "CCT": {"amino_acid": "P", "fraction": 0.17, "per_thousand": 8.4, "count": 43},
-    "CCC": {"amino_acid": "P", "fraction": 0.13, "per_thousand": 6.4, "count": 33},
-    "CCA": {"amino_acid": "P", "fraction": 0.14, "per_thousand": 6.6, "count": 34},
-    "CCG": {"amino_acid": "P", "fraction": 0.55, "per_thousand": 26.7, "count": 137},
-    "CAT": {"amino_acid": "H", "fraction": 0.55, "per_thousand": 15.8, "count": 81},
-    "CAC": {"amino_acid": "H", "fraction": 0.45, "per_thousand": 13.1, "count": 67},
-    "CAA": {"amino_acid": "Q", "fraction": 0.30, "per_thousand": 12.1, "count": 62},
-    "CAG": {"amino_acid": "Q", "fraction": 0.70, "per_thousand": 27.7, "count": 142},
-    "CGT": {"amino_acid": "R", "fraction": 0.36, "per_thousand": 21.1, "count": 108},
-    "CGC": {"amino_acid": "R", "fraction": 0.44, "per_thousand": 26.0, "count": 133},
-    "CGA": {"amino_acid": "R", "fraction": 0.07, "per_thousand": 4.3, "count": 22},
-    "CGG": {"amino_acid": "R", "fraction": 0.07, "per_thousand": 4.1, "count": 21},
-    "ATT": {"amino_acid": "I", "fraction": 0.58, "per_thousand": 30.5, "count": 156},
-    "ATC": {"amino_acid": "I", "fraction": 0.35, "per_thousand": 18.2, "count": 93},
-    "ATA": {"amino_acid": "I", "fraction": 0.07, "per_thousand": 3.7, "count": 19},
-    "ATG": {"amino_acid": "M", "fraction": 1.00, "per_thousand": 24.8, "count": 127},
-    "ACT": {"amino_acid": "T", "fraction": 0.16, "per_thousand": 8.0, "count": 41},
-    "ACC": {"amino_acid": "T", "fraction": 0.47, "per_thousand": 22.8, "count": 117},
-    "ACA": {"amino_acid": "T", "fraction": 0.13, "per_thousand": 6.4, "count": 33},
-    "ACG": {"amino_acid": "T", "fraction": 0.24, "per_thousand": 11.5, "count": 59},
-    "AAT": {"amino_acid": "N", "fraction": 0.47, "per_thousand": 21.9, "count": 112},
-    "AAC": {"amino_acid": "N", "fraction": 0.53, "per_thousand": 24.4, "count": 125},
-    "AAA": {"amino_acid": "K", "fraction": 0.73, "per_thousand": 33.2, "count": 170},
-    "AAG": {"amino_acid": "K", "fraction": 0.27, "per_thousand": 12.1, "count": 62},
-    "AGT": {"amino_acid": "S", "fraction": 0.14, "per_thousand": 7.2, "count": 37},
-    "AGC": {"amino_acid": "S", "fraction": 0.33, "per_thousand": 16.6, "count": 85},
-    "AGA": {"amino_acid": "R", "fraction": 0.02, "per_thousand": 1.4, "count": 7},
-    "AGG": {"amino_acid": "R", "fraction": 0.03, "per_thousand": 1.6, "count": 8},
-    "GTT": {"amino_acid": "V", "fraction": 0.25, "per_thousand": 16.8, "count": 86},
-    "GTC": {"amino_acid": "V", "fraction": 0.18, "per_thousand": 11.7, "count": 60},
-    "GTA": {"amino_acid": "V", "fraction": 0.17, "per_thousand": 11.5, "count": 59},
-    "GTG": {"amino_acid": "V", "fraction": 0.40, "per_thousand": 26.4, "count": 135},
-    "GCT": {"amino_acid": "A", "fraction": 0.11, "per_thousand": 10.7, "count": 55},
-    "GCC": {"amino_acid": "A", "fraction": 0.31, "per_thousand": 31.6, "count": 162},
-    "GCA": {"amino_acid": "A", "fraction": 0.21, "per_thousand": 21.1, "count": 108},
-    "GCG": {"amino_acid": "A", "fraction": 0.38, "per_thousand": 38.5, "count": 197},
-    "GAT": {"amino_acid": "D", "fraction": 0.65, "per_thousand": 37.9, "count": 194},
-    "GAC": {"amino_acid": "D", "fraction": 0.35, "per_thousand": 20.5, "count": 105},
-    "GAA": {"amino_acid": "E", "fraction": 0.70, "per_thousand": 43.7, "count": 224},
-    "GAG": {"amino_acid": "E", "fraction": 0.30, "per_thousand": 18.4, "count": 94},
-    "GGT": {"amino_acid": "G", "fraction": 0.29, "per_thousand": 21.3, "count": 109},
-    "GGC": {"amino_acid": "G", "fraction": 0.46, "per_thousand": 33.4, "count": 171},
-    "GGA": {"amino_acid": "G", "fraction": 0.13, "per_thousand": 9.2, "count": 47},
-    "GGG": {"amino_acid": "G", "fraction": 0.12, "per_thousand": 8.6, "count": 44}
+    "TTT": {
+      "amino_acid": "F",
+      "fraction": 0.57,
+      "per_thousand": 19.7,
+      "count": 101
+    },
+    "TTC": {
+      "amino_acid": "F",
+      "fraction": 0.43,
+      "per_thousand": 15.0,
+      "count": 77
+    },
+    "TTA": {
+      "amino_acid": "L",
+      "fraction": 0.15,
+      "per_thousand": 15.2,
+      "count": 78
+    },
+    "TTG": {
+      "amino_acid": "L",
+      "fraction": 0.12,
+      "per_thousand": 11.9,
+      "count": 61
+    },
+    "TCT": {
+      "amino_acid": "S",
+      "fraction": 0.11,
+      "per_thousand": 5.7,
+      "count": 29
+    },
+    "TCC": {
+      "amino_acid": "S",
+      "fraction": 0.11,
+      "per_thousand": 5.5,
+      "count": 28
+    },
+    "TCA": {
+      "amino_acid": "S",
+      "fraction": 0.15,
+      "per_thousand": 7.8,
+      "count": 40
+    },
+    "TCG": {
+      "amino_acid": "S",
+      "fraction": 0.16,
+      "per_thousand": 8.0,
+      "count": 41
+    },
+    "TAT": {
+      "amino_acid": "Y",
+      "fraction": 0.53,
+      "per_thousand": 16.8,
+      "count": 86
+    },
+    "TAC": {
+      "amino_acid": "Y",
+      "fraction": 0.47,
+      "per_thousand": 14.6,
+      "count": 75
+    },
+    "TAA": {
+      "amino_acid": "*",
+      "fraction": 0.64,
+      "per_thousand": 1.8,
+      "count": 9
+    },
+    "TAG": {
+      "amino_acid": "*",
+      "fraction": 0.0,
+      "per_thousand": 0.0,
+      "count": 0
+    },
+    "TGT": {
+      "amino_acid": "C",
+      "fraction": 0.42,
+      "per_thousand": 5.9,
+      "count": 30
+    },
+    "TGC": {
+      "amino_acid": "C",
+      "fraction": 0.58,
+      "per_thousand": 8.0,
+      "count": 41
+    },
+    "TGA": {
+      "amino_acid": "*",
+      "fraction": 0.36,
+      "per_thousand": 1.0,
+      "count": 5
+    },
+    "TGG": {
+      "amino_acid": "W",
+      "fraction": 1.0,
+      "per_thousand": 10.7,
+      "count": 55
+    },
+    "CTT": {
+      "amino_acid": "L",
+      "fraction": 0.12,
+      "per_thousand": 11.9,
+      "count": 61
+    },
+    "CTC": {
+      "amino_acid": "L",
+      "fraction": 0.1,
+      "per_thousand": 10.5,
+      "count": 54
+    },
+    "CTA": {
+      "amino_acid": "L",
+      "fraction": 0.05,
+      "per_thousand": 5.3,
+      "count": 27
+    },
+    "CTG": {
+      "amino_acid": "L",
+      "fraction": 0.46,
+      "per_thousand": 46.9,
+      "count": 240
+    },
+    "CCT": {
+      "amino_acid": "P",
+      "fraction": 0.17,
+      "per_thousand": 8.4,
+      "count": 43
+    },
+    "CCC": {
+      "amino_acid": "P",
+      "fraction": 0.13,
+      "per_thousand": 6.4,
+      "count": 33
+    },
+    "CCA": {
+      "amino_acid": "P",
+      "fraction": 0.14,
+      "per_thousand": 6.6,
+      "count": 34
+    },
+    "CCG": {
+      "amino_acid": "P",
+      "fraction": 0.55,
+      "per_thousand": 26.7,
+      "count": 137
+    },
+    "CAT": {
+      "amino_acid": "H",
+      "fraction": 0.55,
+      "per_thousand": 15.8,
+      "count": 81
+    },
+    "CAC": {
+      "amino_acid": "H",
+      "fraction": 0.45,
+      "per_thousand": 13.1,
+      "count": 67
+    },
+    "CAA": {
+      "amino_acid": "Q",
+      "fraction": 0.3,
+      "per_thousand": 12.1,
+      "count": 62
+    },
+    "CAG": {
+      "amino_acid": "Q",
+      "fraction": 0.7,
+      "per_thousand": 27.7,
+      "count": 142
+    },
+    "CGT": {
+      "amino_acid": "R",
+      "fraction": 0.36,
+      "per_thousand": 21.1,
+      "count": 108
+    },
+    "CGC": {
+      "amino_acid": "R",
+      "fraction": 0.44,
+      "per_thousand": 26.0,
+      "count": 133
+    },
+    "CGA": {
+      "amino_acid": "R",
+      "fraction": 0.07,
+      "per_thousand": 4.3,
+      "count": 22
+    },
+    "CGG": {
+      "amino_acid": "R",
+      "fraction": 0.07,
+      "per_thousand": 4.1,
+      "count": 21
+    },
+    "ATT": {
+      "amino_acid": "I",
+      "fraction": 0.58,
+      "per_thousand": 30.5,
+      "count": 156
+    },
+    "ATC": {
+      "amino_acid": "I",
+      "fraction": 0.35,
+      "per_thousand": 18.2,
+      "count": 93
+    },
+    "ATA": {
+      "amino_acid": "I",
+      "fraction": 0.07,
+      "per_thousand": 3.7,
+      "count": 19
+    },
+    "ATG": {
+      "amino_acid": "M",
+      "fraction": 1.0,
+      "per_thousand": 24.8,
+      "count": 127
+    },
+    "ACT": {
+      "amino_acid": "T",
+      "fraction": 0.16,
+      "per_thousand": 8.0,
+      "count": 41
+    },
+    "ACC": {
+      "amino_acid": "T",
+      "fraction": 0.47,
+      "per_thousand": 22.8,
+      "count": 117
+    },
+    "ACA": {
+      "amino_acid": "T",
+      "fraction": 0.13,
+      "per_thousand": 6.4,
+      "count": 33
+    },
+    "ACG": {
+      "amino_acid": "T",
+      "fraction": 0.24,
+      "per_thousand": 11.5,
+      "count": 59
+    },
+    "AAT": {
+      "amino_acid": "N",
+      "fraction": 0.47,
+      "per_thousand": 21.9,
+      "count": 112
+    },
+    "AAC": {
+      "amino_acid": "N",
+      "fraction": 0.53,
+      "per_thousand": 24.4,
+      "count": 125
+    },
+    "AAA": {
+      "amino_acid": "K",
+      "fraction": 0.73,
+      "per_thousand": 33.2,
+      "count": 170
+    },
+    "AAG": {
+      "amino_acid": "K",
+      "fraction": 0.27,
+      "per_thousand": 12.1,
+      "count": 62
+    },
+    "AGT": {
+      "amino_acid": "S",
+      "fraction": 0.14,
+      "per_thousand": 7.2,
+      "count": 37
+    },
+    "AGC": {
+      "amino_acid": "S",
+      "fraction": 0.33,
+      "per_thousand": 16.6,
+      "count": 85
+    },
+    "AGA": {
+      "amino_acid": "R",
+      "fraction": 0.02,
+      "per_thousand": 1.4,
+      "count": 7
+    },
+    "AGG": {
+      "amino_acid": "R",
+      "fraction": 0.03,
+      "per_thousand": 1.6,
+      "count": 8
+    },
+    "GTT": {
+      "amino_acid": "V",
+      "fraction": 0.25,
+      "per_thousand": 16.8,
+      "count": 86
+    },
+    "GTC": {
+      "amino_acid": "V",
+      "fraction": 0.18,
+      "per_thousand": 11.7,
+      "count": 60
+    },
+    "GTA": {
+      "amino_acid": "V",
+      "fraction": 0.17,
+      "per_thousand": 11.5,
+      "count": 59
+    },
+    "GTG": {
+      "amino_acid": "V",
+      "fraction": 0.4,
+      "per_thousand": 26.4,
+      "count": 135
+    },
+    "GCT": {
+      "amino_acid": "A",
+      "fraction": 0.11,
+      "per_thousand": 10.7,
+      "count": 55
+    },
+    "GCC": {
+      "amino_acid": "A",
+      "fraction": 0.31,
+      "per_thousand": 31.6,
+      "count": 162
+    },
+    "GCA": {
+      "amino_acid": "A",
+      "fraction": 0.21,
+      "per_thousand": 21.1,
+      "count": 108
+    },
+    "GCG": {
+      "amino_acid": "A",
+      "fraction": 0.38,
+      "per_thousand": 38.5,
+      "count": 197
+    },
+    "GAT": {
+      "amino_acid": "D",
+      "fraction": 0.65,
+      "per_thousand": 37.9,
+      "count": 194
+    },
+    "GAC": {
+      "amino_acid": "D",
+      "fraction": 0.35,
+      "per_thousand": 20.5,
+      "count": 105
+    },
+    "GAA": {
+      "amino_acid": "E",
+      "fraction": 0.7,
+      "per_thousand": 43.7,
+      "count": 224
+    },
+    "GAG": {
+      "amino_acid": "E",
+      "fraction": 0.3,
+      "per_thousand": 18.4,
+      "count": 94
+    },
+    "GGT": {
+      "amino_acid": "G",
+      "fraction": 0.29,
+      "per_thousand": 21.3,
+      "count": 109
+    },
+    "GGC": {
+      "amino_acid": "G",
+      "fraction": 0.46,
+      "per_thousand": 33.4,
+      "count": 171
+    },
+    "GGA": {
+      "amino_acid": "G",
+      "fraction": 0.13,
+      "per_thousand": 9.2,
+      "count": 47
+    },
+    "GGG": {
+      "amino_acid": "G",
+      "fraction": 0.12,
+      "per_thousand": 8.6,
+      "count": 44
+    }
   }
 }

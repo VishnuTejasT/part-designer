@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-_COMPLEMENT = str.maketrans("ACGTacgt", "TGCAtgca")
+from .dna_utils import SiteOccurrence, find_site_occurrences, reverse_complement
 
 # (enzyme name, recognition sequence, severity)
 RFC10_SITES: tuple[tuple[str, str, str], ...] = (
@@ -33,19 +33,15 @@ RFC10_SITES: tuple[tuple[str, str, str], ...] = (
     ("NotI", "GCGGCCGC", "warning"),
 )
 
-
-def reverse_complement(seq: str) -> str:
-    return seq.translate(_COMPLEMENT)[::-1]
-
-
-@dataclass(frozen=True)
-class SiteOccurrence:
-    enzyme: str
-    pattern: str
-    strand: str  # "+", "-", or "+/-" (palindromic site, found on both scans)
-    start: int  # 1-indexed, inclusive, forward-strand coordinates
-    end: int  # 1-indexed, inclusive, forward-strand coordinates
-    matched_sequence: str  # top-strand sequence spanning [start, end]
+__all__ = [
+    "RFC10_SITES",
+    "reverse_complement",
+    "find_site_occurrences",
+    "SiteOccurrence",
+    "SiteCheckResult",
+    "RFC10Report",
+    "validate_rfc10",
+]
 
 
 @dataclass(frozen=True)
@@ -81,61 +77,6 @@ class RFC10Report:
     def passed(self) -> bool:
         """Overall pass/fail: warnings do not affect this, only hard fails."""
         return not self.hard_failures
-
-
-def _forward_matches(seq: str, pattern: str) -> set[tuple[int, int]]:
-    """1-indexed inclusive (start, end) spans of every (overlapping)
-    occurrence of pattern in seq."""
-
-    k = len(pattern)
-    spans = set()
-    start = seq.find(pattern)
-    while start != -1:
-        spans.add((start + 1, start + k))
-        start = seq.find(pattern, start + 1)
-    return spans
-
-
-def find_site_occurrences(seq: str, pattern: str) -> list[dict]:
-    """Scan both strands of ``seq`` for ``pattern``, returning forward-strand
-    coordinates for every hit (deduplicated when a palindromic pattern is
-    found at the same location from both scans)."""
-
-    seq = seq.upper()
-    pattern = pattern.upper()
-    k = len(pattern)
-    length = len(seq)
-
-    forward_spans = _forward_matches(seq, pattern)
-
-    rc_seq = reverse_complement(seq)
-    reverse_spans = set()
-    for i, _ in enumerate(rc_seq):
-        if rc_seq[i : i + k] == pattern:
-            start_1 = length - i - k + 1
-            end_1 = length - i
-            reverse_spans.add((start_1, end_1))
-
-    all_spans = forward_spans | reverse_spans
-    occurrences = []
-    for start, end in sorted(all_spans):
-        on_forward = (start, end) in forward_spans
-        on_reverse = (start, end) in reverse_spans
-        if on_forward and on_reverse:
-            strand = "+/-"
-        elif on_forward:
-            strand = "+"
-        else:
-            strand = "-"
-        occurrences.append(
-            {
-                "strand": strand,
-                "start": start,
-                "end": end,
-                "matched_sequence": seq[start - 1 : end],
-            }
-        )
-    return occurrences
 
 
 def validate_rfc10(dna: str) -> RFC10Report:
