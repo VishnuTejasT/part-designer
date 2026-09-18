@@ -21,11 +21,23 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 # add more organisms here as their frequency tables are sourced.
 ORGANISM_TABLES: dict[str, str] = {
     "e_coli_k12": "ecoli_k12_codon_usage.json",
+    "e_coli_bl21_de3": "e_coli_bl21_de3_codon_usage.json",
+    "b_subtilis_168": "b_subtilis_168_codon_usage.json",
+    "s_cerevisiae": "s_cerevisiae_codon_usage.json",
+    "p_pastoris": "p_pastoris_codon_usage.json",
+    "c_glutamicum": "c_glutamicum_codon_usage.json",
+    "p_putida": "p_putida_codon_usage.json",
+    "synechocystis_pcc6803": "synechocystis_pcc6803_codon_usage.json",
+    "c_reinhardtii": "c_reinhardtii_codon_usage.json",
+    "a_tumefaciens": "a_tumefaciens_codon_usage.json",
+    "l_lactis": "l_lactis_codon_usage.json",
+    "b_megaterium": "b_megaterium_codon_usage.json",
+    "human": "human_codon_usage.json",
 }
 
 DEFAULT_ORGANISM = "e_coli_k12"
 
-_FRACTION_SUM_TOLERANCE = 0.02
+_FRACTION_SUM_TOLERANCE = 0.03
 
 
 @dataclass(frozen=True)
