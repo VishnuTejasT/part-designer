@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plasmid Design Assistant</title>
+<style>
+  :root {
+    --bg: #f7f8f6;
+    --panel: #ffffff;
+    --ink: #1c2321;
+    --muted: #5c6b64;
+    --border: #dfe4e0;
+    --accent: #1f7a5c;
+    --accent-dark: #145940;
+    --fail: #b3261e;
+    --fail-bg: #fdecea;
+    --warn: #8a5a00;
+    --warn-bg: #fff6e0;
+    --pass-bg: #e9f7ef;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding: 32px 16px 64px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin: 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    resize: vertical;
+    background: #fbfcfb;
+  }
+  textarea:focus, select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+  .field { flex: 1; min-width: 160px; }
+  select, input[type="number"] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: #fbfcfb;
+  }
+  .actions { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { background: #a9b6b0; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 0.82rem; }
+  .checkbox-field { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--muted); cursor: pointer; }
+  .checkbox-field input { width: auto; }
+  .repair-note { border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 0.88rem; }
+  .repair-note.resolved { background: var(--pass-bg); color: var(--accent-dark); }
+  .repair-note.unresolved { background: var(--warn-bg); color: var(--warn); }
+  .change-list { margin-top: 8px; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+  .change-list div { margin-top: 3px; }
+  .error-box {
+    display: none;
+    background: var(--fail-bg);
+    color: var(--fail);
+    border: 1px solid #f3c6c2;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    font-size: 0.9rem;
+  }
+  #results { display: none; }
+  .banner {
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 1.02rem;
+    margin-bottom: 18px;
+  }
+  .banner.pass { background: var(--pass-bg); color: var(--accent-dark); }
+  .banner.fail { background: var(--fail-bg); color: var(--fail); }
+  .seq-box {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    word-break: break-all;
+    background: #f0f3f1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 6px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .meta-item { background: #f0f3f1; border-radius: 8px; padding: 10px 12px; }
+  .meta-item .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+  .meta-item .v { font-size: 0.98rem; font-weight: 600; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; }
+  .status-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+  .status-pill.pass { background: var(--pass-bg); color: var(--accent-dark); }
+  .status-pill.fail { background: var(--fail-bg); color: var(--fail); }
+  .status-pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .occ { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+  footer { color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
+  footer a { color: var(--accent-dark); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Plasmid Design Assistant</h1>
+    <p class="subtitle">Protein &rarr; codon-optimized DNA CDS, validated against BioBrick RFC10 &middot; iGEM Software track</p>
+  </header>
+
+  <div class="panel">
+    <label for="protein">Amino acid sequence (one-letter codes)</label>
+    <textarea id="protein" placeholder="e.g. MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQ..."></textarea>
+
+    <div class="row">
+      <div class="field">
+        <label for="organism">Chassis organism</label>
+        <select id="organism"></select>
+      </div>
+      <div class="field">
+        <label for="seed">Random seed (optional)</label>
+        <input id="seed" type="number" placeholder="leave blank for a fresh draw" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="submit">Convert &amp; validate</button>
+      <label class="checkbox-field">
+        <input type="checkbox" id="autoFix" checked />
+        Auto-repair illegal RFC10 sites
+      </label>
+      <span class="hint" id="statusHint"></span>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div id="results">
+    <div class="banner" id="banner"></div>
+
+    <div class="panel">
+      <div class="meta-grid">
+        <div class="meta-item"><div class="k">Protein length</div><div class="v" id="metaProteinLen">-</div></div>
+        <div class="meta-item"><div class="k">CDS length</div><div class="v" id="metaDnaLen">-</div></div>
+        <div class="meta-item"><div class="k">Chassis</div><div class="v" id="metaOrganism">-</div></div>
+        <div class="meta-item"><div class="k">Stop codon</div><div class="v" id="metaStop">-</div></div>
+      </div>
+
+      <label>Optimized DNA CDS</label>
+      <div class="seq-box" id="dnaSeq"></div>
+    </div>
+
+    <div class="panel" id="repairPanel" style="display: none;">
+      <label style="margin-bottom: 6px;">Automatic illegal-site repair</label>
+      <div id="repairNote"></div>
+      <div class="change-list" id="repairChanges"></div>
+    </div>
+
+    <div class="panel">
+      <label style="margin-bottom: 10px;">RFC10 compatibility validation</label>
+      <table>
+        <thead>
+          <tr><th>Enzyme</th><th>Site</th><th>Severity</th><th>Result</th></tr>
+        </thead>
+        <tbody id="validationBody"></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <label>Codon usage source</label>
+      <p id="sourceText" style="margin: 4px 0 0; font-size: 0.88rem; color: var(--muted);"></p>
+    </div>
+  </div>
+
+  <footer>
+    Codon usage data: Kazusa Codon Usage Database, E. coli K-12 (taxid 83333). Part 1 of a two-part iGEM tool &mdash; Part 2 (Part Finder) is not yet built.
+  </footer>
+</div>
+
+<script>
+const proteinEl = document.getElementById("protein");
+const organismEl = document.getElementById("organism");
+const seedEl = document.getElementById("seed");
+const autoFixEl = document.getElementById("autoFix");
+const submitBtn = document.getElementById("submit");
+const statusHint = document.getElementById("statusHint");
+const errorBox = document.getElementById("errorBox");
+const results = document.getElementById("results");
+
+async function loadOrganisms() {
+  try {
+    const res = await fetch("/api/organisms");
+    const data = await res.json();
+    organismEl.innerHTML = "";
+    for (const org of data.organisms) {
+      const opt = document.createElement("option");
+      opt.value = org;
+      opt.textContent = org;
+      if (org === data.default) opt.selected = true;
+      organismEl.appendChild(opt);
+    }
+  } catch (e) {
+    organismEl.innerHTML = '<option value="e_coli_k12">e_coli_k12</option>';
+  }
+}
+
+function severityLabel(sev) {
+  return sev === "fail" ? "Hard fail" : "Warning";
+}
+
+function statusPill(passed, severity) {
+  if (passed) return '<span class="status-pill pass">PASS</span>';
+  return severity === "fail"
+    ? '<span class="status-pill fail">FAIL</span>'
+    : '<span class="status-pill warn">FLAGGED</span>';
+}
+
+function render(report) {
+  errorBox.style.display = "none";
+  results.style.display = "block";
+
+  const banner = document.getElementById("banner");
+  const overallPass = report.validation.overall_pass;
+  const repair = report.repair;
+  banner.className = "banner " + (overallPass ? "pass" : "fail");
+  if (overallPass && repair && repair.attempted && repair.resolved) {
+    banner.textContent = "PASS — illegal site(s) were found and auto-repaired; see below";
+  } else if (overallPass) {
+    banner.textContent = "PASS — no illegal RFC10 restriction sites found";
+  } else {
+    banner.textContent = "FAIL — illegal RFC10 restriction site(s) found; see table below";
+  }
+
+  const repairPanel = document.getElementById("repairPanel");
+  const repairNote = document.getElementById("repairNote");
+  const repairChanges = document.getElementById("repairChanges");
+  if (repair && repair.attempted) {
+    repairPanel.style.display = "block";
+    const n = repair.changes.length;
+    repairNote.className = "repair-note " + (repair.resolved ? "resolved" : "unresolved");
+    repairNote.textContent = repair.resolved
+      ? `Resolved: changed ${n} codon(s) over ${repair.iterations} pass(es). The protein sequence is unchanged.`
+      : `NOT fully resolved after ${repair.iterations} pass(es) (${n} codon(s) changed). ` +
+        "One or more illegal sites could not be removed by a synonymous codon change alone.";
+    repairChanges.innerHTML = repair.changes
+      .map(
+        (c) =>
+          `<div>position ${c.position} (${c.amino_acid}): ${c.old_codon} &rarr; ${c.new_codon} &mdash; breaking up a ${c.enzyme} site</div>`
+      )
+      .join("");
+  } else {
+    repairPanel.style.display = "none";
+  }
+
+  document.getElementById("metaProteinLen").textContent = report.protein.length + " aa";
+  document.getElementById("metaDnaLen").textContent = report.dna.length + " bp";
+  document.getElementById("metaOrganism").textContent = report.organism;
+  document.getElementById("metaStop").textContent = report.protein.stop_codon_appended
+    ? "appended"
+    : "from input";
+  document.getElementById("dnaSeq").textContent = report.dna.sequence;
+
+  const body = document.getElementById("validationBody");
+  body.innerHTML = "";
+  for (const check of report.validation.checks) {
+    const tr = document.createElement("tr");
+    let occHtml = "";
+    if (check.occurrences.length) {
+      occHtml = check.occurrences
+        .map(
+          (o) =>
+            `<div class="occ">strand ${o.strand}, position ${o.start}-${o.end} (${o.matched_sequence})</div>`
+        )
+        .join("");
+    }
+    tr.innerHTML = `
+      <td>${check.enzyme}</td>
+      <td><code>${check.pattern}</code>${occHtml}</td>
+      <td>${severityLabel(check.severity)}</td>
+      <td>${statusPill(check.passed, check.severity)}</td>
+    `;
+    body.appendChild(tr);
+  }
+
+  const src = report.codon_usage_source;
+  document.getElementById("sourceText").innerHTML =
+    `${src.source} &mdash; <a href="${src.source_url}" target="_blank" rel="noopener">${src.source_url}</a>`;
+}
+
+async function submit() {
+  const protein = proteinEl.value.trim();
+  errorBox.style.display = "none";
+  if (!protein) {
+    errorBox.textContent = "Paste a protein sequence first.";
+    errorBox.style.display = "block";
+    return;
+  }
+
+  submitBtn.disabled = true;
+  statusHint.textContent = "Converting...";
+  results.style.display = "none";
+
+  try {
+    const res = await fetch("/api/convert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        protein,
+        organism: organismEl.value,
+        seed: seedEl.value === "" ? null : seedEl.value,
+        auto_fix: autoFixEl.checked,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorBox.textContent = data.error || "Something went wrong.";
+      errorBox.style.display = "block";
+    } else {
+      render(data);
+    }
+  } catch (e) {
+    errorBox.textContent = "Network error: " + e.message;
+    errorBox.style.display = "block";
+  } finally {
+    submitBtn.disabled = false;
+    statusHint.textContent = "";
+  }
+}
+
+submitBtn.addEventListener("click", submit);
+loadOrganisms();
+</script>
+</body>
+</html>
