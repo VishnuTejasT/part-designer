@@ -9,6 +9,8 @@ duplicated.
 
 from __future__ import annotations
 
+import itertools
+
 from .dna_utils import SiteOccurrence, find_site_occurrences
 from .rfc10 import RFC10_SITES
 
@@ -21,6 +23,29 @@ ALWAYS_ON_TYPE_IIS: tuple[tuple[str, str], ...] = (
     ("BbsI", "GAAGAC"),
     ("SapI", "GCTCTTC"),
 )
+
+
+IUPAC = {
+    "A": "A", "C": "C", "G": "G", "T": "T", "R": "AG", "Y": "CT", "S": "CG", "W": "AT",
+    "K": "GT", "M": "AC", "B": "CGT", "D": "AGT", "H": "ACT", "V": "ACG", "N": "ACGT",
+}
+MAX_EXPANSIONS = 256
+
+
+def expand_iupac(pattern: str) -> list[str]:
+    """Concrete DNA sites matching a pattern that may use IUPAC ambiguity
+    letters (R, Y, N, ...). Capped so a run of N's can't explode the scan."""
+
+    try:
+        choices = [IUPAC[base] for base in pattern.upper()]
+    except KeyError as exc:
+        raise ValueError(f"Invalid base {exc.args[0]!r} in cut site {pattern!r}") from None
+    total = 1
+    for c in choices:
+        total *= len(c)
+    if total > MAX_EXPANSIONS:
+        raise ValueError(f"Cut site {pattern!r} is too ambiguous (matches {total} sequences; limit {MAX_EXPANSIONS})")
+    return ["".join(combo) for combo in itertools.product(*choices)]
 
 
 def scan_forbidden_sites(
@@ -39,12 +64,13 @@ def scan_forbidden_sites(
 
     hits: dict[str, tuple[SiteOccurrence, ...]] = {}
     for name, pattern in sites:
-        raw = find_site_occurrences(dna, pattern)
-        if raw:
-            occurrences = tuple(
-                SiteOccurrence(enzyme=name, pattern=pattern.upper(), **occ)
-                for occ in raw
-            )
-            hits.setdefault(name, tuple())
-            hits[name] = hits[name] + occurrences
+        seen: set[tuple[int, int]] = set()
+        for concrete in expand_iupac(pattern):
+            for occ in find_site_occurrences(dna, concrete):
+                key = (occ["start"], occ["end"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                hits.setdefault(name, tuple())
+                hits[name] = hits[name] + (SiteOccurrence(enzyme=name, pattern=pattern.upper(), **occ),)
     return hits

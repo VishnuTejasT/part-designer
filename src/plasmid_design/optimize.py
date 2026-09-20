@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import dataclasses
 import random
+import zlib
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from . import folding
@@ -57,6 +59,28 @@ INVARIANT_AA = ("M", "W", "*")
 
 
 @dataclass(frozen=True)
+class Limits:
+    """User-adjustable constraint limits. Defaults are the engine's
+    original constants, so a request that sets none of them behaves exactly
+    as before."""
+
+    cai_floor: float = CAI_FLOOR
+    rare_codon_w: float = RARE_CODON_W
+    max_stem_bp: int = ss.MAX_STEM_BP  # a stem this long or longer is a violation
+    max_window_mfe: float = ss.MAX_WINDOW_MFE
+    init_dg_floor: float = ss.INIT_DG_FLOOR
+
+
+# Active limits for the running optimize_cds() call. A ContextVar (not a
+# module global) so concurrent requests can't see each other's limits.
+_LIMITS: ContextVar[Limits] = ContextVar("plasmid_design_limits", default=Limits())
+
+
+def _lim() -> Limits:
+    return _LIMITS.get()
+
+
+@dataclass(frozen=True)
 class StructuralRegion:
     start: int  # 1-indexed amino-acid position, inclusive
     end: int
@@ -78,6 +102,8 @@ class OptimizationRequest:
     seed: int | None = None
     gc_bounds: tuple[float, float] = DEFAULT_GC_BOUNDS
     temperature_c: float = ss.DEFAULT_TEMPERATURE_C
+    limits: Limits = Limits()
+    vector_provides_start: bool = False
 
 
 @dataclass(frozen=True)
@@ -111,6 +137,7 @@ class HostModeResult:
     constraint_pass_fail: dict[str, bool]
     notes: list[str]
     codon_choices: tuple[CodonChoice, ...]
+    conflicts: list[dict]
 
 
 class OptimizationError(ValueError):
@@ -122,6 +149,14 @@ class OptimizationError(ValueError):
 # --------------------------------------------------------------------------
 
 
+def _stable_offset(host: str, mode: str) -> int:
+    """Per-(host, mode) seed offset. Uses crc32, not ``hash()``: Python
+    randomizes str hashes per process, which made the same seed give
+    different DNA on different servers/restarts."""
+
+    return zlib.crc32(f"{host}|{mode}".encode()) % 10_000
+
+
 def _codon_positions_overlapping(start: int, end: int) -> list[int]:
     first = (start - 1) // 3 + 1
     last = (end - 1) // 3 + 1
@@ -129,11 +164,11 @@ def _codon_positions_overlapping(start: int, end: int) -> list[int]:
 
 
 def _safe_options(table: CodonUsageTable, amino_acid: str, scores: dict[str, float]):
-    """Synonymous codons for ``amino_acid`` with w >= RARE_CODON_W. Never
-    empty: the max-fraction codon always has w=1.0."""
+    """Synonymous codons for ``amino_acid`` with w >= the active rare-codon cutoff
+    (default 0.30). Never empty: the max-fraction codon always has w=1.0."""
 
     options = table.codons_for(amino_acid)
-    safe = [o for o in options if scores.get(o.codon, 0.0) >= RARE_CODON_W]
+    safe = [o for o in options if scores.get(o.codon, 0.0) >= _lim().rare_codon_w]
     return safe or [max(options, key=lambda o: o.fraction)]
 
 
@@ -237,6 +272,17 @@ def _sequence_violations(
     return violations
 
 
+_TIER_WEIGHTS = (1000, 10, 1)  # forbidden sites >> repeats/GC/homopolymers >> cryptic motifs
+
+
+def _violation_tier(reason: str) -> int:
+    if reason.startswith("forbidden site"):
+        return 0
+    if reason.startswith("cryptic motif"):
+        return 2
+    return 1
+
+
 def _repair_sequence_constraints(
     codons: list[str],
     choices: list[CodonChoice],
@@ -250,43 +296,62 @@ def _repair_sequence_constraints(
 ) -> tuple[bool, int, list[str]]:
     """Fix forbidden-site/repeat/GC/homopolymer/motif violations, resampling
     only from each position's safe (w>=0.3) synonym set -- so a fix can
-    never introduce a rare codon."""
+    never introduce a rare codon.
 
+    Priority-aware: each pass only touches positions from the highest-
+    priority tier that still has a fixable violation, and the best state
+    seen (by weighted violation count) is what's returned. Without this an
+    unfixable low-priority violation (e.g. a heuristic splice motif) keeps
+    re-rolling codons and can re-break an already-fixed cut site."""
+
+    def weighted(violations) -> int:
+        return sum(_TIER_WEIGHTS[_violation_tier(v[2])] for v in violations)
+
+    dna = "".join(codons)
+    violations = _sequence_violations(dna, domain, forbidden_extra, gc_bounds)
+    best_score = weighted(violations)
+    best_state = (list(codons), list(choices))
+    best_reasons = sorted({v[2] for v in violations})
     iterations = 0
-    last_reasons: list[str] = []
-    while iterations < max_iterations:
-        dna = "".join(codons)
-        violations = _sequence_violations(dna, domain, forbidden_extra, gc_bounds)
-        if not violations:
-            return True, iterations, []
-        last_reasons = sorted({v[2] for v in violations})
+
+    while violations and iterations < max_iterations:
         iterations += 1
-
-        position_reasons: dict[int, str] = {}
-        for start, end, reason in violations:
-            for pos in _codon_positions_overlapping(start, end):
-                if 1 <= pos <= len(codons):
-                    position_reasons.setdefault(pos, reason)
-
         changed_any = False
-        for pos in position_reasons:
-            amino_acid = choices[pos - 1].amino_acid
-            if amino_acid in INVARIANT_AA:
-                continue
-            safe = _safe_options(table, amino_acid, scores)
-            current = codons[pos - 1]
-            alternatives = [o for o in safe if o.codon != current]
-            if not alternatives:
-                continue
-            chosen = _weighted_pick(alternatives, rng)
-            codons[pos - 1] = chosen.codon
-            choices[pos - 1] = dataclasses.replace(choices[pos - 1], codon=chosen.codon, fraction=chosen.fraction)
-            changed_any = True
+        for tier in (0, 1, 2):
+            position_reasons: dict[int, str] = {}
+            for start, end, reason in violations:
+                if _violation_tier(reason) != tier:
+                    continue
+                for pos in _codon_positions_overlapping(start, end):
+                    if 1 <= pos <= len(codons):
+                        position_reasons.setdefault(pos, reason)
+            for pos in position_reasons:
+                amino_acid = choices[pos - 1].amino_acid
+                if amino_acid in INVARIANT_AA:
+                    continue
+                alternatives = [o for o in _safe_options(table, amino_acid, scores) if o.codon != codons[pos - 1]]
+                if not alternatives:
+                    continue
+                chosen = _weighted_pick(alternatives, rng)
+                codons[pos - 1] = chosen.codon
+                choices[pos - 1] = dataclasses.replace(choices[pos - 1], codon=chosen.codon, fraction=chosen.fraction)
+                changed_any = True
+            if changed_any:
+                break  # only work on the highest-priority tier that could change
 
         if not changed_any:
-            return False, iterations, last_reasons
+            break
 
-    return False, iterations, last_reasons
+        violations = _sequence_violations("".join(codons), domain, forbidden_extra, gc_bounds)
+        score = weighted(violations)
+        if score < best_score:
+            best_score = score
+            best_state = (list(codons), list(choices))
+            best_reasons = sorted({v[2] for v in violations})
+
+    codons[:] = best_state[0]
+    choices[:] = best_state[1]
+    return best_score == 0, iterations, ([] if best_score == 0 else best_reasons)
 
 
 def _raise_cai(
@@ -403,16 +468,16 @@ def _refold_overlapping(
 
 def _hairpin_score(state: _HairpinState) -> float:
     score = 0.0
-    if state.worst_mfe is not None and state.worst_mfe < ss.MAX_WINDOW_MFE:
-        score += ss.MAX_WINDOW_MFE - state.worst_mfe
-    if state.longest_stem >= ss.MAX_STEM_BP:
-        score += state.longest_stem - ss.MAX_STEM_BP + 1
+    if state.worst_mfe is not None and state.worst_mfe < _lim().max_window_mfe:
+        score += _lim().max_window_mfe - state.worst_mfe
+    if state.longest_stem >= _lim().max_stem_bp:
+        score += state.longest_stem - _lim().max_stem_bp + 1
     score += len(state.terminator_hits) * 5
     score += len(state.inverted_reps) * 2
     if state.init_unpaired is False:
         score += 10
-    if state.init_dG is not None and state.init_dG < ss.INIT_DG_FLOOR:
-        score += ss.INIT_DG_FLOOR - state.init_dG
+    if state.init_dG is not None and state.init_dG < _lim().init_dg_floor:
+        score += _lim().init_dg_floor - state.init_dG
     return score
 
 
@@ -447,12 +512,12 @@ def _repair_hairpins(
 
     def resolved(s: _HairpinState) -> bool:
         ok = (
-            (s.worst_mfe is None or s.worst_mfe >= ss.MAX_WINDOW_MFE)
-            and s.longest_stem < ss.MAX_STEM_BP
+            (s.worst_mfe is None or s.worst_mfe >= _lim().max_window_mfe)
+            and s.longest_stem < _lim().max_stem_bp
             and not s.terminator_hits
             and not s.inverted_reps
             and s.init_unpaired is not False
-            and (s.init_dG is None or s.init_dG >= ss.INIT_DG_FLOOR)
+            and (s.init_dG is None or s.init_dG >= _lim().init_dg_floor)
         )
         if target_dG is not None and s.init_dG is not None:
             ok = ok and s.init_dG >= target_dG
@@ -540,7 +605,7 @@ def _w_stats(codons: list[str], choices: list[CodonChoice], scores: dict[str, fl
         scores.get(codon, 1.0) if choices[i].amino_acid not in INVARIANT_AA else 1.0
         for i, codon in enumerate(codons)
     ]
-    below = sum(1 for w in ws if w < RARE_CODON_W)
+    below = sum(1 for w in ws if w < _lim().rare_codon_w)
     return (min(ws) if ws else 1.0), below
 
 
@@ -641,7 +706,7 @@ def _insert_pause_sites(
             continue
         candidates = [
             o for o in options
-            if PAUSE_W_LOW <= (o.fraction / max_fraction) < PAUSE_W_HIGH
+            if _lim().rare_codon_w <= (o.fraction / max_fraction) < PAUSE_W_HIGH
         ]
         old_codon = codons[idx]
         placed = False
@@ -706,7 +771,7 @@ def _diversify(
                 new_cai = cai_score(dna, table)
             except ValueError:
                 new_cai = 1.0
-            if new_cai < CAI_FLOOR:
+            if new_cai < _lim().cai_floor:
                 codons[i] = old_codon
                 continue
             choices[i] = dataclasses.replace(choices[i], codon=candidate.codon, fraction=candidate.fraction)
@@ -784,11 +849,11 @@ def _build_result(
         "no_repeated_15mers": not repeats,
         "no_long_homopolymers": not homopolymer_runs(dna),
         "gc_windows_in_bounds": not gc_windows,
-        "cai_floor_met": cai is not None and cai >= CAI_FLOOR,
+        "cai_floor_met": cai is not None and cai >= _lim().cai_floor,
         "init_region_unpaired": (hairpin_state.init_unpaired is not False) if hairpins_available else True,
-        "no_overlong_stem": (hairpin_state.longest_stem < ss.MAX_STEM_BP) if hairpins_available else True,
+        "no_overlong_stem": (hairpin_state.longest_stem < _lim().max_stem_bp) if hairpins_available else True,
         "no_overstable_window": (
-            hairpin_state.worst_mfe is None or hairpin_state.worst_mfe >= ss.MAX_WINDOW_MFE
+            hairpin_state.worst_mfe is None or hairpin_state.worst_mfe >= _lim().max_window_mfe
         ) if hairpins_available else True,
         "no_terminator_motifs": (not hairpin_state.terminator_hits) if hairpins_available else True,
         "no_inverted_repeats": (not hairpin_state.inverted_reps) if hairpins_available else True,
@@ -800,8 +865,8 @@ def _build_result(
             f"best achievable sequence: hard sequence constraints not fully resolved, "
             f"blocked by: {', '.join(blocking_reasons) or 'unknown'}"
         )
-    if cai is not None and cai < CAI_FLOOR:
-        all_notes.append(f"CAI floor 0.90 not met (achieved {cai:.3f})")
+    if cai is not None and cai < _lim().cai_floor:
+        all_notes.append(f"CAI floor {_lim().cai_floor:.2f} not met (achieved {cai:.3f})")
     if tai_note:
         all_notes.append(tai_note)
     if ew_note:
@@ -811,29 +876,61 @@ def _build_result(
         all_notes.append("hairpin/secondary-structure checks unavailable: ViennaRNA could not be loaded")
     elif not hairpin_resolved:
         parts = []
-        if hairpin_state.worst_mfe is not None and hairpin_state.worst_mfe < ss.MAX_WINDOW_MFE:
-            parts.append(f"worst 60nt window MFE {hairpin_state.worst_mfe:.2f} kcal/mol (limit {ss.MAX_WINDOW_MFE})")
-        if hairpin_state.longest_stem >= ss.MAX_STEM_BP:
-            parts.append(f"longest stem {hairpin_state.longest_stem} bp (limit <{ss.MAX_STEM_BP})")
+        if hairpin_state.worst_mfe is not None and hairpin_state.worst_mfe < _lim().max_window_mfe:
+            parts.append(f"worst 60nt window MFE {hairpin_state.worst_mfe:.2f} kcal/mol (limit {_lim().max_window_mfe})")
+        if hairpin_state.longest_stem >= _lim().max_stem_bp:
+            parts.append(f"longest stem {hairpin_state.longest_stem} bp (limit <{_lim().max_stem_bp})")
         if hairpin_state.terminator_hits:
             parts.append(f"{len(hairpin_state.terminator_hits)} terminator-like motif(s)")
         if hairpin_state.inverted_reps:
             parts.append(f"{len(hairpin_state.inverted_reps)} inverted repeat(s) >=8bp")
         if hairpin_state.init_unpaired is False:
             parts.append("initiation region (-15/+20) not fully single-stranded")
-        if hairpin_state.init_dG is not None and hairpin_state.init_dG < ss.INIT_DG_FLOOR:
-            parts.append(f"initiation dG {hairpin_state.init_dG:.2f} kcal/mol (floor {ss.INIT_DG_FLOOR})")
+        if hairpin_state.init_dG is not None and hairpin_state.init_dG < _lim().init_dg_floor:
+            parts.append(f"initiation dG {hairpin_state.init_dG:.2f} kcal/mol (floor {_lim().init_dg_floor})")
         detail = "; ".join(parts) or "unspecified"
         if hairpin_blocked_by_floor:
             all_notes.append(
                 f"hairpin limit(s) not fully met: {detail}. Blocked by the CAI floor "
-                f"(0.90): further hairpin-reducing swaps would drop CAI below the floor. "
+                f"({_lim().cai_floor:.2f}): further hairpin-reducing swaps would drop CAI below the floor. "
                 "Choose whether to lower the CAI floor (e.g. to 0.85) or loosen the hairpin limit."
             )
         else:
             all_notes.append(
                 f"hairpin limit(s) not fully met after the local-search budget: {detail}"
             )
+
+    conflicts: list[dict] = []
+    # The heuristic splice-motif screen matches almost any eukaryotic CDS, so a
+    # motif-only shortfall is a note, not something a user can act on.
+    actionable = [r for r in blocking_reasons if not r.startswith("cryptic motif")]
+    if not resolved and actionable:
+        conflicts.append(
+            {"constraint": "sequence_rules", "blocked_by": "protein_sequence", "reasons": actionable}
+        )
+    if hairpins_available and not hairpin_resolved:
+        blocked_by = "cai_floor" if hairpin_blocked_by_floor else "search_budget"
+        lim = _lim()
+        if hairpin_state.worst_mfe is not None and hairpin_state.worst_mfe < lim.max_window_mfe:
+            conflicts.append({"constraint": "window_energy", "limit": lim.max_window_mfe,
+                              "reached": hairpin_state.worst_mfe, "blocked_by": blocked_by, "cai_floor": lim.cai_floor})
+        if hairpin_state.longest_stem >= lim.max_stem_bp:
+            conflicts.append({"constraint": "stem_length", "limit": lim.max_stem_bp - 1,
+                              "reached": hairpin_state.longest_stem, "blocked_by": blocked_by, "cai_floor": lim.cai_floor})
+        if hairpin_state.terminator_hits:
+            conflicts.append({"constraint": "terminator_motifs", "limit": 0,
+                              "reached": len(hairpin_state.terminator_hits), "blocked_by": blocked_by, "cai_floor": lim.cai_floor})
+        if hairpin_state.inverted_reps:
+            conflicts.append({"constraint": "inverted_repeats", "limit": 0,
+                              "reached": len(hairpin_state.inverted_reps), "blocked_by": blocked_by, "cai_floor": lim.cai_floor})
+        if hairpin_state.init_unpaired is False or (
+            hairpin_state.init_dG is not None and hairpin_state.init_dG < lim.init_dg_floor
+        ):
+            conflicts.append({"constraint": "start_region", "limit": lim.init_dg_floor,
+                              "reached": hairpin_state.init_dG, "blocked_by": blocked_by, "cai_floor": lim.cai_floor})
+    if cai is not None and cai < _lim().cai_floor:
+        conflicts.append({"constraint": "cai_floor", "limit": _lim().cai_floor, "reached": cai,
+                          "blocked_by": "sequence_rules"})
 
     return HostModeResult(
         host=host, mode=mode, protein=protein, dna=dna,
@@ -859,6 +956,7 @@ def _build_result(
         constraint_pass_fail=constraint_pass_fail,
         notes=all_notes,
         codon_choices=tuple(choices),
+        conflicts=conflicts,
     )
 
 
@@ -870,18 +968,18 @@ def _run_production(
     resolved, _iters, reasons = _repair_sequence_constraints(
         codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds, rng,
     )
-    _raise_cai(codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds, PRODUCTION_CAI_TARGET)
+    _raise_cai(codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds, max(PRODUCTION_CAI_TARGET, _lim().cai_floor))
 
     if request.five_prime_utr:
         _optimize_initiation(
             codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds,
-            request.five_prime_utr, request.temperature_c, CAI_FLOOR, rng,
+            request.five_prime_utr, request.temperature_c, _lim().cai_floor, rng,
         )
 
     limit = min(INITIATION_WINDOW_CODONS, len(codons) - 1)
     hairpin_state, hairpin_resolved, blocked_by_floor = _repair_hairpins(
         codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds,
-        request.five_prime_utr, request.temperature_c, CAI_FLOOR, rng,
+        request.five_prime_utr, request.temperature_c, _lim().cai_floor, rng,
         target_dG=PRODUCTION_DG_TARGET if request.five_prime_utr else None,
     )
 
@@ -925,13 +1023,13 @@ def _run_folding(
     resolved, _iters, reasons = _repair_sequence_constraints(
         codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds, rng,
     )
-    _raise_cai(codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds, CAI_FLOOR)
+    _raise_cai(codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds, _lim().cai_floor)
 
     pause_count = 0
     if request.structural_regions:
         pause_count = _insert_pause_sites(
             codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds,
-            request.structural_regions, CAI_FLOOR, request.five_prime_utr, request.temperature_c, None,
+            request.structural_regions, _lim().cai_floor, request.five_prime_utr, request.temperature_c, None,
         )
     else:
         notes.append(
@@ -941,7 +1039,7 @@ def _run_folding(
 
     hairpin_state, hairpin_resolved, blocked_by_floor = _repair_hairpins(
         codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds,
-        request.five_prime_utr, request.temperature_c, CAI_FLOOR, rng,
+        request.five_prime_utr, request.temperature_c, _lim().cai_floor, rng,
     )
 
     return _build_result(
@@ -966,7 +1064,7 @@ def _run_balanced(
     if request.structural_regions:
         pause_count = _insert_pause_sites(
             codons, choices, table, scores, domain, request.forbidden_enzymes, request.gc_bounds,
-            request.structural_regions, BALANCED_CAI_FLOOR, request.five_prime_utr, request.temperature_c, baseline_dG,
+            request.structural_regions, max(BALANCED_CAI_FLOOR, _lim().cai_floor), request.five_prime_utr, request.temperature_c, baseline_dG,
         )
     else:
         notes.append(
@@ -981,12 +1079,12 @@ def _run_balanced(
     # just re-scan to report the final state honestly.
     if hairpin_state is not None:
         resolved_flag = (
-            (hairpin_state.worst_mfe is None or hairpin_state.worst_mfe >= ss.MAX_WINDOW_MFE)
-            and hairpin_state.longest_stem < ss.MAX_STEM_BP
+            (hairpin_state.worst_mfe is None or hairpin_state.worst_mfe >= _lim().max_window_mfe)
+            and hairpin_state.longest_stem < _lim().max_stem_bp
             and not hairpin_state.terminator_hits
             and not hairpin_state.inverted_reps
             and hairpin_state.init_unpaired is not False
-            and (hairpin_state.init_dG is None or hairpin_state.init_dG >= ss.INIT_DG_FLOOR)
+            and (hairpin_state.init_dG is None or hairpin_state.init_dG >= _lim().init_dg_floor)
         )
     else:
         resolved_flag = False
@@ -999,7 +1097,39 @@ def _run_balanced(
     )
 
 
+MAX_PROTEIN_LENGTH = 1500  # amino acids; keeps ALL-mode runs inside the 300 s serverless budget
+
+
 def optimize_cds(request: OptimizationRequest) -> list[HostModeResult]:
+    """Run the optimizer under ``request.limits`` (see ``Limits``)."""
+
+    token = _LIMITS.set(request.limits)
+    try:
+        results = _optimize_cds(request)
+    finally:
+        _LIMITS.reset(token)
+
+    if request.vector_provides_start:
+        # The vector supplies the ATG. It was kept in the sequence above so the
+        # start-region fold and cut-site scan see it; drop it from the output.
+        results = [
+            dataclasses.replace(r, dna=r.dna[3:], protein=r.protein[1:], codon_choices=r.codon_choices[1:])
+            for r in results
+        ]
+    return results
+
+
+def _optimize_cds(request: OptimizationRequest) -> list[HostModeResult]:
+    user_protein = clean_protein_sequence(request.protein)
+    if len(user_protein) > MAX_PROTEIN_LENGTH:
+        raise OptimizationError(
+            f"This protein is {len(user_protein):,} amino acids. The limit is {MAX_PROTEIN_LENGTH:,}. "
+            "Try splitting it into domains."
+        )
+    if request.vector_provides_start and not (request.n_tag + user_protein).startswith("M"):
+        raise OptimizationError(
+            "vector_provides_start needs a protein that starts with M (the start codon the vector supplies)."
+        )
     protein = request.n_tag + clean_protein_sequence(request.protein) + request.c_tag
     validate_protein_sequence(protein)
 
@@ -1022,7 +1152,7 @@ def optimize_cds(request: OptimizationRequest) -> list[HostModeResult]:
         balanced_result = None
 
         for mode in modes:
-            seed = None if base_seed is None else base_seed + hash((host, mode)) % 10_000
+            seed = None if base_seed is None else base_seed + _stable_offset(host, mode)
             rng = random.Random(seed)
             if mode == "PRODUCTION":
                 result = _run_production(protein, host, table, scores, domain, request, rng)
@@ -1036,7 +1166,7 @@ def optimize_cds(request: OptimizationRequest) -> list[HostModeResult]:
 
         if request.hedge:
             if balanced_result is None:
-                seed = None if base_seed is None else base_seed + hash((host, "BALANCED")) % 10_000
+                seed = None if base_seed is None else base_seed + _stable_offset(host, "BALANCED")
                 rng = random.Random(seed)
                 balanced_result = _run_balanced(protein, host, table, scores, domain, request, rng)
             codons = [balanced_result.dna[i : i + 3] for i in range(0, len(balanced_result.dna), 3)]
@@ -1047,12 +1177,12 @@ def optimize_cds(request: OptimizationRequest) -> list[HostModeResult]:
             hairpin_state = _scan_hairpins(dna, domain, request.five_prime_utr, request.temperature_c)
             if hairpin_state is not None:
                 resolved_flag = (
-                    (hairpin_state.worst_mfe is None or hairpin_state.worst_mfe >= ss.MAX_WINDOW_MFE)
-                    and hairpin_state.longest_stem < ss.MAX_STEM_BP
+                    (hairpin_state.worst_mfe is None or hairpin_state.worst_mfe >= _lim().max_window_mfe)
+                    and hairpin_state.longest_stem < _lim().max_stem_bp
                     and not hairpin_state.terminator_hits
                     and not hairpin_state.inverted_reps
                     and hairpin_state.init_unpaired is not False
-                    and (hairpin_state.init_dG is None or hairpin_state.init_dG >= ss.INIT_DG_FLOOR)
+                    and (hairpin_state.init_dG is None or hairpin_state.init_dG >= _lim().init_dg_floor)
                 )
             else:
                 resolved_flag = False

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script src="/static/strings.js"></script>
+<script>
+(function () {
+  var S = window.PD_STRINGS, G = S.glossary, app = document.getElementById("app");
+  document.title = G.title;
+  function el(tag, attrs, text) { var e = document.createElement(tag); Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); }); if (text) e.textContent = text; return e; }
+  var main = el("main");
+  main.appendChild(el("h1", null, G.title));
+  main.appendChild(el("p", { class: "help" }, G.intro));
+  var back = el("a", { href: "/" }, G.back); var p = el("p"); p.appendChild(back); main.appendChild(p);
+  var dl = el("dl", { class: "techlist", style: "grid-template-columns:1fr" });
+  G.terms.forEach(function (t) {
+    var dt = el("dt", { id: t[0], style: "font-weight:700;color:var(--ink);margin-top:12px" }, t[1]);
+    dl.appendChild(dt); dl.appendChild(el("dd", null, t[2]));
+  });
+  main.appendChild(dl); app.appendChild(main);
+})();
+</script>
+</body>
+</html>

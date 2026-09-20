@@ -4,7 +4,7 @@ following report.py's ``add(...)`` banner-section text convention."""
 from __future__ import annotations
 
 from .codon_usage import load_codon_table
-from .optimize import HostModeResult
+from .optimize import HostModeResult, Limits
 from .trna_usage import TrnaDataError, load_trna_table
 
 IN_SILICO_CAVEAT = (
@@ -13,8 +13,73 @@ IN_SILICO_CAVEAT = (
 )
 
 
-def _result_dict(r: HostModeResult) -> dict:
+def _translate(dna: str, table) -> str:
+    return "".join(table.by_codon[dna[i : i + 3]]["amino_acid"] for i in range(0, len(dna) - len(dna) % 3, 3))
+
+
+def build_checks(r: HostModeResult, limits: Limits) -> list[dict]:
+    """The plain-English checklist rows as data: id, group, status
+    (pass | review | fail), applicable, and the numbers behind it. All
+    wording lives in the client's strings file -- nothing user-facing here."""
+
+    table = load_codon_table(r.host)
+    ok = r.constraint_pass_fail
+    is_bacterial = table.metadata.get("domain") == "prokaryote"
+
+    translated = _translate(r.dna, table)
+    expected = r.protein if r.protein.endswith("*") else r.protein + "*"
+    identity_ok = translated == expected
+    # Count amino acids only; the stop codon is judged by the start/stop check.
+    body_t, body_e = translated.rstrip("*"), expected.rstrip("*")
+    matched = sum(1 for a, b in zip(body_t, body_e) if a == b)
+
+    def status(passed: bool) -> str:
+        return "pass" if passed else "fail"
+
+    start_dg = r.five_prime_dG
+    if start_dg is None and r.init_region_unpaired is None:
+        start_status = "review"  # no start-of-gene DNA given: only an estimate is possible
+    else:
+        start_status = status(
+            r.init_region_unpaired is not False and (start_dg is None or start_dg >= limits.init_dg_floor)
+        )
+
+    return [
+        {"id": "protein_identity", "group": "must_pass", "status": status(identity_ok), "applicable": True,
+         "value": {"matched": matched, "total": len(body_e)}},
+        {"id": "start_stop", "group": "must_pass", "status": status(ok["no_internal_stop"]), "applicable": True,
+         "value": {"ends_with_stop": translated.endswith("*"), "early_stops": translated[:-1].count("*")}},
+        {"id": "cut_sites", "group": "must_pass", "status": status(ok["no_forbidden_sites"]), "applicable": True,
+         "value": {"found": sum(r.forbidden_site_hits.values()), "sites": r.forbidden_site_hits}},
+        {"id": "rare_codons", "group": "must_pass", "status": status(ok["zero_rare_codons"]), "applicable": True,
+         "value": {"found": r.codons_below_w_threshold, "lowest": r.min_w_used, "cutoff": limits.rare_codon_w}},
+        {"id": "codon_score", "group": "quality", "status": status(ok["cai_floor_met"]), "applicable": True,
+         "value": {"cai": r.cai, "goal": limits.cai_floor}},
+        {"id": "synthesis", "group": "quality",
+         "status": status(ok["no_repeated_15mers"] and ok["no_long_homopolymers"] and ok["gc_windows_in_bounds"]),
+         "applicable": True,
+         "value": {"repeats": r.repeated_15mers, "gc_min": r.gc_window_min, "gc_max": r.gc_window_max}},
+        {"id": "start_region", "group": "quality", "status": start_status, "applicable": True,
+         "value": {"dG": start_dg, "open": r.init_region_unpaired, "limit": limits.init_dg_floor}},
+        {"id": "hairpins", "group": "quality", "status": status(ok["no_overlong_stem"] and ok["no_overstable_window"]),
+         "applicable": True,
+         "value": {"longest_stem": r.longest_stem, "strongest": r.worst_window_mfe,
+                   "stem_limit": limits.max_stem_bp - 1, "energy_limit": limits.max_window_mfe}},
+        {"id": "terminators", "group": "quality", "status": status(ok["no_terminator_motifs"]),
+         "applicable": is_bacterial, "value": {"found": len(r.terminator_motifs)}},
+        {"id": "mirror_repeats", "group": "quality", "status": status(ok["no_inverted_repeats"]),
+         "applicable": True, "value": {"found": len(r.inverted_repeats)}},
+    ]
+
+
+def _result_dict(r: HostModeResult, limits: Limits) -> dict:
+    checks = build_checks(r, limits)
+    counted = [c for c in checks if c["applicable"]]
     return {
+        "checks": checks,
+        "checks_total": len(counted),
+        "checks_passed": sum(1 for c in counted if c["status"] == "pass"),
+        "conflicts": r.conflicts,
         "host": r.host,
         "mode": r.mode,
         "protein_length": len(r.protein) - (1 if r.protein.endswith("*") else 0),
@@ -48,7 +113,8 @@ def _result_dict(r: HostModeResult) -> dict:
     }
 
 
-def build_optimization_report(results: list[HostModeResult]) -> dict:
+def build_optimization_report(results: list[HostModeResult], limits: Limits | None = None) -> dict:
+    limits = limits or Limits()
     hosts = sorted({r.host for r in results})
 
     codon_table_sources = {}
@@ -80,12 +146,19 @@ def build_optimization_report(results: list[HostModeResult]) -> dict:
             "tai": r.tai,
             "five_prime_dG": r.five_prime_dG,
             "pass": all(r.constraint_pass_fail.values()),
+            "checks_passed": d["checks_passed"],
+            "checks_total": d["checks_total"],
         }
-        for r in results
+        for r, d in zip(results, [_result_dict(x, limits) for x in results])
     ]
 
     return {
-        "sequences": [_result_dict(r) for r in results],
+        "sequences": [_result_dict(r, limits) for r in results],
+        "limits_used": {
+            "cai_floor": limits.cai_floor, "rare_codon_w": limits.rare_codon_w,
+            "longest_allowed_stem": limits.max_stem_bp - 1,
+            "worst_window_mfe": limits.max_window_mfe, "start_region_dG": limits.init_dg_floor,
+        },
         "summary_table": summary_table,
         "codon_table_sources": codon_table_sources,
         "trna_table_sources": trna_table_sources,

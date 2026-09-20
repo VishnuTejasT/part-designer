@@ -29,3 +29,23 @@ def test_extra_caller_supplied_site():
 def test_clean_sequence_has_no_hits():
     dna = "ATGAAACCCGGGTTTTAA"
     assert scan_forbidden_sites(dna) == {}
+
+
+def test_iupac_ambiguity_letters_match_every_expansion():
+    from plasmid_design.forbidden_sites import expand_iupac
+
+    assert sorted(expand_iupac("GRATC")) == ["GAATC", "GGATC"]
+    dna = "ATG" + "GGATC" + "TAA"
+    assert "MySite" in scan_forbidden_sites(dna, extra_sites=(("MySite", "GRATC"),))
+    assert "MySite" not in scan_forbidden_sites("ATGGCATCTAA", extra_sites=(("MySite", "GRATC"),))
+
+
+def test_iupac_rejects_bad_letters_and_runaway_ambiguity():
+    import pytest
+
+    from plasmid_design.forbidden_sites import expand_iupac
+
+    with pytest.raises(ValueError):
+        expand_iupac("GATATX")
+    with pytest.raises(ValueError):
+        expand_iupac("NNNNNNNNN")
