@@ -1,0 +1,49 @@
+{
+  "probed_on": "2026-09-21",
+  "api_base": "https://api.registry.igem.org/v1",
+  "wrapper_package": {
+    "pypi_name": "igem-registry-api",
+    "version": "0.1.0",
+    "uploaded": "2025-10-08",
+    "requires_python": ">=3.12",
+    "repository": "https://github.com/igem-munich/igem_registry_api",
+    "installed": false,
+    "why_not_installed": "project env is Python 3.10; source inspected statically from the wheel; its models expose no efficiency/parameter fields"
+  },
+  "probe_part": {
+    "name": "BBa_J23100",
+    "uuid": "9b3b1fbd-1557-49a5-964a-7f8b491c9101",
+    "slug": "bba-j23100",
+    "sequence_matches_sql_dump_and_legacy_xml": true
+  },
+  "openapi_endpoints": 134,
+  "openapi_mentions": {
+    "efficiency": false,
+    "strength": false,
+    "measurement": false
+  },
+  "part_record_fields": [
+    "uuid",
+    "name",
+    "slug",
+    "status",
+    "title",
+    "description",
+    "role",
+    "topology",
+    "licenseUUID",
+    "source",
+    "sequence",
+    "audit",
+    "chassis",
+    "usageCount"
+  ],
+  "efficiency_in_part_record": false,
+  "efficiency_in_metrics_endpoint": false,
+  "documentation_endpoint": "free-text markdown per part; some legacy docs hold a 'Functional Parameters' table (e.g. J23100: 'Relative promoter strength estimates ... Strength | 2'); structured efficiency 8.5326 molecule s^-1 (per cell) NOT present",
+  "rate_limits_observed": {
+    "short": "5 per 5 s",
+    "medium": "30",
+    "large": "~100 per 600 s"
+  }
+}

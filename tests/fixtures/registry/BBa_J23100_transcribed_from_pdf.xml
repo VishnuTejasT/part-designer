@@ -1,0 +1,57 @@
+<!-- Transcribed by hand from the PDF print of https://parts.igem.org/cgi/xml/part.cgi?part=BBa_J23100
+     (pages 1-3, saved 2026-09-21). Only fields visible in that print are reproduced. -->
+<rsbpml>
+  <part_list>
+    <part>
+      <part_id>7142</part_id>
+      <part_name>BBa_J23100</part_name>
+      <part_short_name>J23100</part_short_name>
+      <part_short_desc>constitutive promoter family member</part_short_desc>
+      <part_type>Regulatory</part_type>
+      <release_status>Released HQ 2013</release_status>
+      <sample_status>In stock</sample_status>
+      <part_results>Works</part_results>
+      <part_url>https://parts.igem.org/Part:BBa_J23100</part_url>
+      <sequences>
+        <seq_data>ttgacggctagctcagtcctaggtacagtgctagc </seq_data>
+      </sequences>
+      <parameters>
+        <parameter>
+          <name>efficiency</name>
+          <value>8.5326 molecule s^(&#8722;1 ) (per cell)</value>
+          <units/>
+          <id>30083</id>
+          <m_date>2020-10-19 17:12:30</m_date>
+        </parameter>
+        <parameter>
+          <name>efficiency</name>
+          <value>NA</value>
+          <units/>
+          <id>30082</id>
+          <m_date>2020-10-19 17:11:39</m_date>
+        </parameter>
+        <parameter>
+          <name>negative_regulators</name>
+          <value>NA</value>
+          <units/>
+          <id>5955</id>
+          <m_date>2009-04-19 13:47:00</m_date>
+        </parameter>
+        <parameter>
+          <name>positive_regulators</name>
+          <value>BBa_B0034 </value>
+          <units/>
+          <id>5951</id>
+          <m_date>2009-04-19 13:45:50</m_date>
+        </parameter>
+        <parameter>
+          <name>n/a</name>
+          <value>constitutive promoter family member</value>
+          <units/>
+          <id>5953</id>
+          <m_date>2009-04-19 13:47:00</m_date>
+        </parameter>
+      </parameters>
+    </part>
+  </part_list>
+</rsbpml>

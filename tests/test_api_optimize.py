@@ -76,3 +76,18 @@ def test_static_assets_are_served(client, path, mime):
 def test_pages_are_served(client):
     assert b"/static/app.js" in client.get("/").data
     assert b"PD_STRINGS" in client.get("/glossary").data
+
+
+def test_part_finder_endpoint(client):
+    r = client.post("/api/part-finder", json={"host": "e_coli_bl21_de3", "level": "high", "top": 2, "cds": "ATGGAATTCTAA"})
+    d = r.get_json()
+    assert r.status_code == 200 and set(d["results"]) == {"promoter", "rbs", "terminator"}
+    assert all(len(b["parts"]) <= 2 for b in d["results"].values())
+    assert d["cds_rfc10"]["illegal_sites"] == ["EcoRI"]
+    assert d["dataset"]["source"]["sha256"].startswith("c64bbc9a")
+
+
+@pytest.mark.parametrize("body", [{}, {"host": "c_reinhardtii"}, {"host": "e_coli_k12", "top": "x"},
+                                  {"host": "e_coli_k12", "level": "extreme"}, {"host": "e_coli_k12", "cds": "ATGXX"}])
+def test_part_finder_rejects_bad_input(client, body):
+    assert client.post("/api/part-finder", json=body).status_code == 400

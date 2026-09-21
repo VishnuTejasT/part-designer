@@ -15,6 +15,7 @@ from plasmid_design.codon_usage import (  # noqa: E402
     load_codon_table,
 )
 from plasmid_design.design import design_cds  # noqa: E402
+from plasmid_design.part_finder import PartFinderError, check_cds, find_parts  # noqa: E402
 from plasmid_design.optimize import (  # noqa: E402
     DEFAULT_GC_BOUNDS,
     MAX_PROTEIN_LENGTH,
@@ -207,6 +208,34 @@ def optimize():
         return jsonify({"error": str(exc)}), 400
 
     return jsonify(build_optimization_report(results, req_limits))
+
+
+@app.route("/api/part-finder", methods=["POST"])
+def part_finder():
+    """Promoter / RBS / terminator suggestions from the verified Registry extract.
+    Body: {host, standard?, level?, top?, kinds?, avoid_type_iis?, cds?}"""
+    payload = request.get_json(silent=True) or {}
+    host = payload.get("host")
+    if not host:
+        return jsonify({"error": "host is required"}), 400
+    try:
+        top = int(payload.get("top", 5))
+    except (TypeError, ValueError):
+        return jsonify({"error": "top must be a whole number"}), 400
+    try:
+        result = find_parts(
+            host, standard=payload.get("standard") or "RFC10", level=payload.get("level") or None, top=top,
+            kinds=tuple(payload.get("kinds") or ("promoter", "rbs", "terminator")),
+            avoid_type_iis=bool(payload.get("avoid_type_iis", False)),
+        )
+    except PartFinderError as exc:
+        return jsonify({"error": str(exc)}), 400
+    cds = "".join(str(payload.get("cds") or "").split()).upper()
+    if cds:
+        if set(cds) - set("ACGT"):
+            return jsonify({"error": "cds must contain only A, C, G, T"}), 400
+        result["cds_rfc10"] = check_cds(cds)
+    return jsonify(result)
 
 
 @app.route("/api/health", methods=["GET"])
