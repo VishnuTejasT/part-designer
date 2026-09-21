@@ -400,3 +400,15 @@ def test_build_needs_one_of_each_kind(page):
     page.evaluate("document.querySelectorAll('input[name=pf-rbs]').forEach(e => e.checked = false)")
     page.click("button:has-text('Build the plasmid')")
     assert "pick one of each kind" in page.inner_text(".build-result")
+
+
+def test_new_seed_button_reruns_with_a_different_number(page):
+    paste(page, UBQ)
+    page.click("text=Advanced settings")
+    page.fill("#lim-mfe", "-3")                       # forces a conflict so the fix panel appears
+    page.click("#optimize")
+    page.wait_for_selector(".fix", timeout=120000)
+    first = page.inner_text("text=Number used")
+    page.click(".fix >> text=Try again with a new random seed")
+    page.wait_for_selector(".banner", timeout=120000)
+    assert page.inner_text("text=Number used") != first

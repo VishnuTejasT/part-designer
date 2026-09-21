@@ -292,7 +292,15 @@
      there is nothing the user can act on. */
   function fixPanel(seq, limitsUsed) {
     var c = (seq.conflicts || []).filter(function (x) { return x.constraint !== "sequence_rules"; })[0];
-    if (!c) return null;
+    if (!c) {
+      // Repeats, GC balance and similar: the engine couldn't clear them, and only a new random try can.
+      var rules = (seq.conflicts || []).filter(function (x) { return x.constraint === "sequence_rules"; })[0];
+      if (!rules) return null;
+      var plain = (rules.reasons || []).map(function (x) { return S.results.synthReasons[x] || S.results.synthOther; })
+        .filter(function (x, i, a) { return a.indexOf(x) === i; });
+      return { constraint: "sequence_rules", text: S.fmt(S.results.fixSynth, { reasons: plain.join("; ") }),
+        buttons: [{ id: "newSeed", label: S.results.newSeed, newSeed: true }, { id: "keep", label: S.results.keep, keep: true }] };
+    }
     var goal = Number(limitsUsed.cai_floor).toFixed(2);
     var out = { constraint: c.constraint, buttons: [] };
     var r = S.results;
@@ -323,6 +331,7 @@
       out.text = S.fmt(r.fixOther, { reached: c.reached });
       if (c.blocked_by === "cai_floor") out.buttons.push({ id: "lowerScore", label: r.lowerScore, override: { cai_floor: 0.85 } });
     }
+    out.buttons.push({ id: "newSeed", label: r.newSeed, newSeed: true });
     out.buttons.push({ id: "keep", label: r.keep, keep: true });
     return out;
   }

@@ -207,10 +207,13 @@ test("check result sentences", () => {
 test("fix panel names the numbers and only offers explicit fixes", () => {
   const p = L.fixPanel(seq({ conflicts: [{ constraint: "window_energy", limit: -15, reached: -18.6, blocked_by: "cai_floor" }] }), { cai_floor: 0.9 });
   assert.equal(p.text, "To reach a codon match score of 0.90, the DNA has to use choices that make the gene's message fold more than your limit (strongest fold -19, limit -15).");
-  assert.deepEqual(p.buttons.map((b) => b.label), ["Lower the score goal to 0.85 and re-run", "Allow stronger folds (-19) and re-run", "Keep this result"]);
+  assert.deepEqual(p.buttons.map((b) => b.label), ["Lower the score goal to 0.85 and re-run", "Allow stronger folds (-19) and re-run", "Try again with a new random seed", "Keep this result"]);
   assert.deepEqual(p.buttons[0].override, { cai_floor: 0.85 }); assert.deepEqual(p.buttons[1].override, { worst_window_energy: -19 });
   assert.equal(L.fixPanel(seq({ conflicts: [] }), { cai_floor: 0.9 }), null);
-  assert.equal(L.fixPanel(seq({ conflicts: [{ constraint: "sequence_rules", reasons: ["x"] }] }), { cai_floor: 0.9 }), null);
+  const synth = L.fixPanel(seq({ conflicts: [{ constraint: "sequence_rules", reasons: ["GC window high", "repeated 15-mer", "GC window high"] }] }), { cai_floor: 0.9 });
+  assert.equal(synth.text, "We couldn't remove every problem that makes this DNA hard to make: a stretch with too much G and C; a piece that repeats. Another random try often clears it.");
+  assert.deepEqual(synth.buttons.map((b) => b.label), ["Try again with a new random seed", "Keep this result"]);
+  assert.match(L.fixPanel(seq({ conflicts: [{ constraint: "sequence_rules", reasons: ["forbidden site EcoRI"] }] }), { cai_floor: 0.9 }).text, /a cut site or other rule/);
 });
 test("DNA blocks of 10 with positions; FASTA wraps at 60", () => {
   const dna = "ACGT".repeat(30);

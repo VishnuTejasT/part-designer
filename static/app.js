@@ -963,6 +963,7 @@
     var row = h("div", { class: "row" }, fix.buttons.map(function (b) {
       return h("button", { type: "button", onclick: function () {
         if (b.keep) { seq._kept = true; renderSequence(); announce(S.results.kept); return; }
+        if (b.newSeed) { state.seed = ""; refs.seed.value = ""; state.seedUsed = null; showView("form"); run(true); return; }
         state.overrides = Object.assign({}, state.overrides, b.override); showView("form"); run(false);
       } }, b.label);
     }));
