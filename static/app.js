@@ -859,7 +859,7 @@
         .then(function (x) {
           btn.removeAttribute("aria-disabled"); status.textContent = "";
           if (!x.ok) { out.appendChild(msgEl("error", "\u2716", /chassis tag/.test(x.d.error || "") ? P.unsupported : (x.d.error || P.error))); return; }
-          renderParts(out, x.d);
+          renderParts(out, x.d, seq);
         })
         .catch(function () { btn.removeAttribute("aria-disabled"); status.textContent = ""; out.appendChild(msgEl("error", "\u2716", P.error)); });
     });
@@ -868,7 +868,67 @@
       h("div", { class: "field" }, h("label", { class: "label", for: "pf-level" }, P.levelLabel), h("p", { class: "help" }, P.levelHelp), sel),
       h("div", { class: "row" }, btn, status), out);
   }
-  function renderParts(out, d) {
+  function buildPanel(partsOut, seq) {
+    var B = S.build, result = h("div", { class: "build-result" }), status = h("p", { class: "muted", role: "status" });
+    var btn = h("button", { type: "button", class: "primary" }, B.button);
+    btn.addEventListener("click", function () {
+      if (btn.getAttribute("aria-disabled") === "true") return;
+      var pick = function (k) { var c = partsOut.querySelector("input[name=pf-" + k + "]:checked"); return c ? c.value : null; };
+      var promoter = pick("promoter"), rbs = pick("rbs"), terminator = pick("terminator");
+      clear(result);
+      if (!promoter || !rbs || !terminator) { result.appendChild(msgEl("warn", "\u26A0", B.needParts)); return; }
+      btn.setAttribute("aria-disabled", "true"); status.textContent = B.building;
+      var vectorAtg = state.lastRequests && state.lastRequests[0].vector_provides_start;
+      fetch("/api/vectorize", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promoter: promoter, rbs: rbs, terminator: terminator, cds: (vectorAtg ? "ATG" : "") + seq.dna }) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (x) {
+          btn.removeAttribute("aria-disabled"); status.textContent = "";
+          if (!x.ok) { result.appendChild(msgEl("error", "\u2716", x.d.error || B.error)); return; }
+          renderBuild(result, x.d);
+        })
+        .catch(function () { btn.removeAttribute("aria-disabled"); status.textContent = ""; result.appendChild(msgEl("error", "\u2716", B.error)); });
+    });
+    return h("div", { class: "field", style: "border-top:1px solid var(--line);padding-top:16px;margin-top:24px" },
+      h("h2", null, B.title), h("p", { class: "help" }, B.intro), h("div", { class: "row" }, btn, status), result);
+  }
+  function renderBuild(out, d) {
+    var B = S.build, g = d.gc, s = d.size, j = d.junction_check;
+    out.appendChild(h("p", { class: "help" }, F(B.backbone, { name: d.backbone.name, bp: d.backbone.length, desc: d.backbone.description })));
+    if (j.ok) out.appendChild(msgEl("note", "\u2713", B.junctionOk));
+    else {
+      out.appendChild(msgEl("error", "\u2716", B.junctionBad));
+      out.appendChild(h("ul", null, j.violations.map(function (v) { return h("li", null, F(B.violation, { enzyme: v.enzyme, start: v.start, end: v.end, where: v.at_junction ? B.atJoin : "" })); })
+        .concat(j.type_iis_sites.map(function (n) { return h("li", null, n); }))));
+    }
+    out.appendChild(h("p", { class: "help" }, B.flankNote));
+    out.appendChild(h("h3", { style: "margin-top:16px" }, B.sizeTitle));
+    out.appendChild(h("p", null, F(B.size, { total: s.total_bp.toLocaleString("en-US"), backbone: s.backbone_bp.toLocaleString("en-US"), insert: s.insert_bp.toLocaleString("en-US") }), " ", s.within_studied_range ? B.sizeWithin : B.sizeBeyond));
+    out.appendChild(h("p", { class: "help" }, s.evidence));
+    if (d.synthesis.beyond_clonal_gene_limit) out.appendChild(msgEl("warn", "\u26A0", F(B.synthBad, { limit: "7,000" })));
+    out.appendChild(h("h3", { style: "margin-top:16px" }, B.gcTitle));
+    out.appendChild(h("p", null, F(B.gc, { gc: g.insert_percent, lo: g.window_min, hi: g.window_max })));
+    out.appendChild(g.twist_high_complexity ? msgEl("warn", "\u26A0", B.gcTwistBad) : msgEl("note", "\u2713", B.gcTwistOk));
+    if (g.outside_project_range) out.appendChild(msgEl("info", "\u2139", B.gcProject));
+    out.appendChild(h("h3", { style: "margin-top:16px" }, B.layoutTitle));
+    out.appendChild(h("table", { class: "stack" }, h("tbody", null, d.layout.map(function (x) {
+      return h("tr", null, h("td", { "data-label": "Piece" }, B.kind[x.kind]), h("td", { "data-label": "Name" }, x.kind === "scar" ? d.insert.substr(x.start - d.backbone.length - 1, x.length) : x.name),
+        h("td", { "data-label": "Positions" }, x.start + "-" + x.end), h("td", { "data-label": "Length" }, String(x.length)));
+    }))));
+    out.appendChild(h("p", { class: "help" }, F(B.scarNote, { std: d.scars.standard, rbs: d.scars.rbs_to_cds })));
+    var msg = h("span", { class: "muted small", role: "status" });
+    out.appendChild(h("h3", { style: "margin-top:16px" }, B.seqTitle));
+    out.appendChild(h("div", { class: "row seq-tools" },
+      h("button", { type: "button", onclick: function () { copyWithFeedback(d.sequence, msg, B.copied); } }, B.copy),
+      h("button", { type: "button", onclick: function () { download(d.fasta, "plasmid_" + d.backbone.name + ".fasta"); } }, B.download), msg));
+    var dna = h("div", { class: "dna", role: "group", "aria-label": B.seqTitle });
+    L.dnaRows(d.sequence, 5).forEach(function (row) {
+      dna.appendChild(h("div", { class: "line" }, h("span", { class: "pos", "aria-hidden": "true" }, String(row.start)), h("span", { class: "blocks" }, row.blocks.map(function (b) { return h("span", null, b); }))));
+    });
+    out.appendChild(h("details", null, h("summary", null, B.seqTitle + " (" + d.sequence.length.toLocaleString("en-US") + ")"), dna));
+    out.appendChild(h("p", { class: "help" }, B.sources + ": ", d.sources.scars.concat([d.sources.synthesis]).map(function (u, i) { return h("a", { href: u, target: "_blank", rel: "noopener", style: "margin-right:12px" }, B.sourceLabels[i]); })));
+  }
+  function renderParts(out, d, seq) {
     var P = S.parts;
     if (d.cds_rfc10) out.appendChild(d.cds_rfc10.ok ? msgEl("note", "\u2713", P.cdsOk) : msgEl("error", "\u2716", F(P.cdsBad, { sites: d.cds_rfc10.illegal_sites.join(", ") })));
     (d.warnings || []).forEach(function (w) { out.appendChild(msgEl("warn", "\u26A0", w)); });
@@ -883,6 +943,8 @@
         var lines = [strength]; if (part.regulation) lines.unshift(P.regulation[part.regulation]);
         if (e.level_hint) lines.push(F(P.hintText, { word: "\u2018" + e.level_hint.word + "\u2019" }));
         return h("li", { class: "part" },
+          h("label", { class: "check", style: "min-height:44px;padding:0" },
+            h("input", { type: "radio", name: "pf-" + kind, value: part.name, checked: block.parts[0] === part }), S.build.use),
           h("div", { class: "row between", style: "margin:0" },
             h("a", { href: part.registry_url, target: "_blank", rel: "noopener" }, part.name, h("span", { class: "sr-only" }, " " + P.viewRegistry)),
             h("span", { class: "pill " + (avail ? "pass" : "review") }, h("span", { "aria-hidden": "true" }, avail ? "\u2713" : "\u26A0"), avail ? P.available : P.notAvailable)),
@@ -892,6 +954,7 @@
           h("details", null, h("summary", null, P.why), h("ul", null, part.reasons.map(function (r) { return h("li", null, r); }))));
       })));
     });
+    out.appendChild(buildPanel(out, seq));
     out.appendChild(h("p", { class: "help", style: "margin-top:16px" }, P.limits));
     out.appendChild(h("p", { class: "help" }, F(P.source, { file: d.dataset.source.file, sha: d.dataset.source.sha256.slice(0, 12) })));
   }

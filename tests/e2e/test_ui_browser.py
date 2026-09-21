@@ -223,6 +223,8 @@ def test_axe_no_critical_or_serious_issues(browser, base_url, scheme):
     scan("results")
     pg.click("#part-finder button.primary"); pg.wait_for_selector(".partlist", timeout=30000)
     scan("results with part finder")
+    pg.click("button:has-text('Build the plasmid')"); pg.wait_for_selector(".build-result table", timeout=30000)
+    scan("results with built plasmid")
     ctx.close()
 
 
@@ -333,3 +335,68 @@ def test_result_tabs_have_a_labelled_tab_panel(page):
     assert page.get_attribute("#result-body", "aria-labelledby") == "tab-0"
     page.click(".tab >> nth=1")
     assert page.get_attribute("#result-body", "aria-labelledby") == "tab-1"
+
+
+def find_parts_and_build(page):
+    run_example(page)
+    page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
+    page.click("button:has-text('Build the plasmid')"); page.wait_for_selector(".build-result table")
+
+
+def test_build_plasmid_shows_checks_size_gc_and_layout(page):
+    find_parts_and_build(page)
+    txt = page.inner_text(".build-result")
+    assert "No illegal cut sites in the whole plasmid, including where the parts join." in txt
+    assert "Backbone: pSB1C3 (2070 letters)" in txt
+    assert "Scars: TACTAGAG between most parts and TACTAG between the ribosome binding site" in txt
+    assert "Twist" in txt and "not a company limit" in txt or "No 50-letter window" in txt
+    assert page.locator(".build-result tbody tr").count() == 7
+    assert "trend, not a pass/fail line" in txt
+
+
+def test_built_plasmid_copy_and_download_match_the_api_sequence(page):
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    find_parts_and_build(page)
+    page.click("text=Copy plasmid DNA")
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert copied.startswith("TACTAGTAGCGGCCGCTGCAG") and copied.endswith(copied[-30:]) and set(copied) <= set("ACGT")
+    with page.expect_download() as dl:
+        page.click("text=Download FASTA >> nth=-1")
+    body = open(dl.value.path()).read()
+    assert body.startswith(">construct_pSB1C3") and body.replace("\n", "").endswith(copied)
+
+
+def test_the_selected_parts_are_the_ones_sent_to_the_builder(page):
+    run_example(page)
+    page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
+    second = page.locator("input[name=pf-rbs] >> nth=1")
+    second.check()
+    name = second.get_attribute("value")
+    with page.expect_request("**/api/vectorize") as req:
+        page.click("button:has-text('Build the plasmid')")
+    import json
+    assert json.loads(req.value.post_data)["rbs"] == name
+
+
+def test_a_junction_failure_is_shown_with_its_position_and_join_label(page):
+    run_example(page)
+    page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
+    fake = {"backbone": {"name": "pSB1C3", "length": 2070, "description": "x"}, "insert": "A" * 20, "sequence": "ACGT" * 30, "fasta": ">c\nACGT\n",
+            "junction_check": {"ok": False, "type_iis_sites": [], "violations": [{"enzyme": "SpeI", "start": 2100, "end": 2105, "at_junction": True}]},
+            "size": {"total_bp": 2090, "backbone_bp": 2070, "insert_bp": 20, "within_studied_range": True, "evidence": "e"},
+            "synthesis": {"beyond_clonal_gene_limit": False},
+            "gc": {"insert_percent": 50, "window_min": 40, "window_max": 60, "twist_high_complexity": False, "outside_project_range": False},
+            "layout": [], "scars": {"standard": "TACTAGAG", "rbs_to_cds": "TACTAG"}, "sources": {"scars": ["https://parts.igem.org/x"], "synthesis": "https://twist/x"}}
+    page.route("**/api/vectorize", lambda r: r.fulfill(json=fake))
+    page.click("button:has-text('Build the plasmid')")
+    page.wait_for_selector(".build-result .msg.error")
+    t = page.inner_text(".build-result")
+    assert "has a cut site the BioBrick standard doesn't allow" in t and "SpeI site at positions 2100-2105 (right at a join between parts)" in t
+
+
+def test_build_needs_one_of_each_kind(page):
+    run_example(page)
+    page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
+    page.evaluate("document.querySelectorAll('input[name=pf-rbs]').forEach(e => e.checked = false)")
+    page.click("button:has-text('Build the plasmid')")
+    assert "pick one of each kind" in page.inner_text(".build-result")

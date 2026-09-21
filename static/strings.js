@@ -330,6 +330,41 @@
     error: "Couldn't look up parts. Try again in a moment.",
   };
 
+  S.build = {
+    title: "Build the full plasmid",
+    intro: "Choose one promoter, one ribosome binding site and one terminator above. We join them with your gene and check the whole plasmid.",
+    use: "Use this part",
+    button: "Build the plasmid",
+    building: "Building",
+    needParts: "Find parts first, then pick one of each kind.",
+    backbone: "Backbone: {name} ({bp} letters). The Registry describes it as: {desc}.",
+    junctionOk: "No illegal cut sites in the whole plasmid, including where the parts join.",
+    junctionBad: "The finished plasmid has a cut site the BioBrick standard doesn't allow.",
+    violation: "{enzyme} site at positions {start}-{end}{where}",
+    atJoin: " (right at a join between parts)",
+    flankNote: "The backbone's own EcoRI, XbaI, SpeI, PstI and NotI sites at its ends are expected and ignored.",
+    sizeTitle: "Size",
+    size: "{total} letters in total: {backbone} backbone plus {insert} insert.",
+    sizeWithin: "Within the size range studied.",
+    sizeBeyond: "Larger than the size range studied.",
+    gcTitle: "GC balance of the insert",
+    gc: "{gc}% GC overall. Its most extreme 50-letter windows are {lo}% and {hi}%.",
+    gcTwistBad: "A 50-letter window is below 10% or above 90% GC. Twist calls that high-complexity, which is harder to make.",
+    gcTwistOk: "No 50-letter window is below 10% or above 90% GC (the limits Twist states).",
+    gcProject: "Overall GC is outside 30-70%. That range is this project's own guide, not a company limit.",
+    synthBad: "The insert is longer than {limit} letters, the longest single gene Twist makes.",
+    layoutTitle: "What is in the plasmid",
+    scarNote: "Scars: {std} between most parts and {rbs} between the ribosome binding site and your gene.",
+    seqTitle: "Your finished plasmid",
+    copy: "Copy plasmid DNA",
+    download: "Download FASTA",
+    copied: "Copied.",
+    sources: "Sources",
+    sourceLabels: ["Registry: RFC10 standard", "Registry: scars", "Twist: sequence limits"],
+    error: "Couldn't build the plasmid. Try again in a moment.",
+    kind: { promoter: "Promoter", rbs: "Ribosome binding site", terminator: "Terminator", cds: "Your gene", scar: "Scar" },
+  };
+
   S.checks = {
     protein_identity: {
       name: "Your protein is made correctly", tech: "Protein identity",
