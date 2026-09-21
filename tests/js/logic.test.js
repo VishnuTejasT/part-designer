@@ -197,7 +197,10 @@ test("check result sentences", () => {
   assert.equal(L.checkResultText({ id: "protein_identity", status: "pass", value: { matched: 359, total: 359 } }), "359 of 359 amino acids match");
   assert.equal(L.checkResultText({ id: "rare_codons", status: "pass", value: { found: 0, lowest: 0.339, cutoff: 0.3 } }), "0 found; lowest score 0.34");
   assert.equal(L.checkResultText({ id: "codon_score", status: "pass", value: { cai: 0.931, goal: 0.9 } }), "0.93 (goal 0.90 or higher)");
-  assert.equal(L.checkResultText({ id: "hairpins", status: "pass", value: { longest_stem: 6, strongest: -12.4 } }), "Longest 6 letters; strongest -12");
+  assert.equal(L.checkResultText({ id: "hairpins", status: "pass", value: { longest_stem: 6, strongest: -12.4 } }), "Longest 6 letters; strongest -12.4");
+  // a value just past the -15 limit must not display as if it were exactly on it
+  assert.equal(L.checkResultText({ id: "hairpins", status: "fail", value: { longest_stem: 7, strongest: -15.4 } }), "Longest 7 letters; strongest -15.4");
+  assert.equal(L.checkResultText({ id: "synthesis", status: "fail", value: { gc_min: 0.296, gc_max: 0.6 } }), "Repeats or lopsided DNA; GC 29.6-60.0%");
   assert.equal(L.checkResultText({ id: "start_region", status: "review", value: {} }).startsWith("Not checked"), true);
   assert.equal(L.techName({ id: "rare_codons", value: { cutoff: 0.3 } }), "Rare codons (score under 0.3)");
 });

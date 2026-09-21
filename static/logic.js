@@ -273,10 +273,11 @@
     var vars = {
       matched: v.matched, total: v.total, found: v.found, lowest: v.lowest !== undefined ? Number(v.lowest).toFixed(2) : "",
       cai: v.cai !== undefined && v.cai !== null ? Number(v.cai).toFixed(2) : "", goal: v.goal !== undefined ? Number(v.goal).toFixed(2) : "",
-      gcMin: v.gc_min !== undefined && v.gc_min !== null ? Math.round(v.gc_min * 100) : "",
-      gcMax: v.gc_max !== undefined && v.gc_max !== null ? Math.round(v.gc_max * 100) : "",
+      // One decimal: rounding to a whole number made 29.6% read as a passing "30%" against a 30% limit.
+      gcMin: v.gc_min !== undefined && v.gc_min !== null ? (v.gc_min * 100).toFixed(1) : "",
+      gcMax: v.gc_max !== undefined && v.gc_max !== null ? (v.gc_max * 100).toFixed(1) : "",
       dG: v.dG !== undefined && v.dG !== null ? Number(v.dG).toFixed(1) : "",
-      stem: v.longest_stem, strongest: v.strongest !== undefined && v.strongest !== null ? Math.round(v.strongest) : "",
+      stem: v.longest_stem, strongest: v.strongest !== undefined && v.strongest !== null ? Number(v.strongest).toFixed(1) : "",
     };
     var key = check.status === "review" && tpl.review ? "review" : check.status === "pass" ? "pass" : "fail";
     return S.fmt(tpl[key], vars);

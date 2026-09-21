@@ -150,14 +150,17 @@ th { color: var(--muted); font-size: 0.85rem; }
 .dna .blocks { display: flex; flex-wrap: wrap; column-gap: 1ch; }
 .seq-tools { position: sticky; top: 0; background: var(--panel); padding: 8px 0; z-index: 3; }
 .checklist { list-style: none; padding: 0; margin: 0; }
-.checklist li { border-bottom: 1px solid var(--line); padding: 10px 0; display: grid; grid-template-columns: 8.5rem 1fr; gap: 4px 12px; align-items: start; }
+.checklist li { border-bottom: 1px solid var(--line); padding: 8px 0; display: grid; grid-template-columns: 8.5rem 1fr; gap: 0 12px; align-items: start; }
 .pill { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; font-size: 0.9rem; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
 .pill.pass { background: var(--pass-bg); color: var(--pass); }
 .pill.review { background: var(--review-bg); color: var(--review); }
 .pill.fail { background: var(--fail-bg); color: var(--fail); }
 .checklist .name { font-weight: 700; }
-.checklist details { grid-column: 2; }
-.checklist summary { cursor: pointer; min-height: 32px; color: var(--accent); }
+.resultline { display: flex; flex-wrap: wrap; align-items: center; column-gap: 16px; }
+.resultline details { flex: 0 1 auto; }
+.resultline details[open] { flex-basis: 100%; }
+.checklist summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--accent); }
+.checklist .pill { margin-top: 2px; }
 .fix { border: 2px solid var(--review); background: var(--review-bg); color: var(--ink); border-radius: 10px; padding: 16px; margin: 16px 0; }
 .fix h3 { color: var(--review); }
 .fix .row button { background: var(--panel); }
@@ -165,12 +168,12 @@ th { color: var(--muted); font-size: 0.85rem; }
 .techlist { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
 .techlist dt { color: var(--muted); }
 .techlist dd { margin: 0; overflow-wrap: anywhere; }
+footer.page .row { margin: 0 0 12px; }
 footer.page { margin-top: 24px; color: var(--muted); font-size: 0.9rem; }
 
 @media (max-width: 719px) {
   body { padding-top: 16px; }
   .checklist li { grid-template-columns: 1fr; }
-  .checklist details { grid-column: 1; }
   /* tables collapse to stacked cards */
   table.stack thead { position: absolute; left: -9999px; }
   table.stack tr { display: block; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; padding: 4px 8px; }

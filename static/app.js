@@ -833,7 +833,8 @@
       return h("ul", { class: "checklist" }, seq.checks.filter(function (c) { return c.group === group && c.applicable; }).map(function (c) {
         var tpl = S.checks[c.id], det = h("details", null, h("summary", null, S.results.whatThisMeans), h("p", { style: "margin:4px 0" }, tpl.means, " ", h("span", { class: "muted small" }, L.techName(c))));
         var nameEl = h("span", { class: "name" }, tpl.name); (CHECK_TERMS[c.id] || []).slice(0, 1).forEach(function (k) { nameEl.appendChild(tip(k)); });
-        return h("li", null, h("span", null, statusPill(c.status)), h("span", null, nameEl, h("br"), h("span", null, L.checkResultText(c))), det);
+        return h("li", null, h("span", null, statusPill(c.status)),
+          h("div", null, nameEl, h("div", { class: "resultline" }, h("span", null, L.checkResultText(c)), det)));
       }));
     };
     body.appendChild(h("div", { class: "panel" }, h("h2", null, S.results.mustPass), checkList("must_pass"), h("h2", { style: "margin-top:20px" }, S.results.quality), checkList("quality")));
