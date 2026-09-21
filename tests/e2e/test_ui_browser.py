@@ -221,4 +221,115 @@ def test_axe_no_critical_or_serious_issues(browser, base_url, scheme):
     scan("form with advanced open")
     pg.click("#optimize"); pg.wait_for_selector(".banner", timeout=120000)
     scan("results")
+    pg.click("#part-finder button.primary"); pg.wait_for_selector(".partlist", timeout=30000)
+    scan("results with part finder")
     ctx.close()
+
+
+# ---- Part Finder and the button fixes ----------------------------------------------------------
+def run_example(page):
+    paste(page, UBQ)
+    page.click("#optimize")
+    page.wait_for_selector(".banner", timeout=120000)
+
+
+def test_start_of_gene_options_come_from_the_registry_extract(page):
+    page.click("text=Advanced settings")
+    page.wait_for_function("document.querySelector('#start-choice optgroup').children.length > 3")
+    opts = page.locator("#start-choice optgroup option").all_inner_texts()
+    assert "BBa_B0034 \u2014 AAAGAGGAGAAA" in opts
+    page.select_option("#start-choice", "part:BBa_B0034")
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    paste(page, UBQ)
+    page.click("summary:has-text('Developer options')")
+    page.click("text=Copy API request")
+    import json
+    assert json.loads(page.evaluate("navigator.clipboard.readText()"))["five_prime_utr"] == "AAAGAGGAGAAA"
+
+
+def test_part_finder_lists_three_kinds_with_honest_notes_and_provenance(page):
+    run_example(page)
+    page.click("#part-finder button.primary")
+    page.wait_for_selector(".partlist", timeout=30000)
+    panel = page.inner_text("#part-finder")
+    for heading in ("Promoters", "Ribosome binding sites", "Terminators"):
+        assert heading in panel
+    assert "can't predict how much protein a part makes" in panel
+    assert "No measured strength on file" in panel
+    assert "Always on (no inducer needed)" in panel
+    assert "checksum c64bbc9a1" in panel
+    assert "Your gene passes the RFC10 check." in panel
+    hrefs = page.locator("#part-finder .partlist a").evaluate_all("els => els.map(e => e.href)")
+    assert hrefs and all(h.startswith("https://registry.igem.org/parts/bba-") for h in hrefs)
+    assert page.locator("#part-finder .partlist > li.part").count() <= 15
+
+
+def test_part_finder_explains_why_a_part_was_chosen(page):
+    run_example(page)
+    page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
+    page.locator("#part-finder details >> nth=0").locator("summary").click()
+    assert "Passes the RFC10 check" in page.locator("#part-finder details >> nth=0").inner_text()
+
+
+def test_part_finder_says_plainly_when_a_host_has_no_registry_tag(page):
+    page.uncheck("input[value=e_coli_bl21_de3]")
+    page.click("summary:has-text('More organisms')")
+    page.check("input[value=c_reinhardtii]")
+    run_example(page)
+    page.click("#part-finder button.primary")
+    page.wait_for_selector("#part-finder .msg.error")
+    assert "don't have Registry host tags for this organism" in page.inner_text("#part-finder")
+    assert any("400" in e for e in page.errors)       # the browser logs the deliberate 400; nothing else may be logged
+    page.errors[:] = [e for e in page.errors if "400" not in e]
+
+
+def test_keep_this_result_shows_a_visible_confirmation(page):
+    paste(page, UBQ)
+    page.click("text=Advanced settings")
+    page.fill("#lim-mfe", "-3")                       # an impossible fold limit forces a conflict
+    page.click("#optimize")
+    page.wait_for_selector(".fix", timeout=120000)
+    page.click(".fix >> text=Keep this result")
+    assert page.locator(".fix").count() == 0
+    assert "Kept. This result still has the problem described above." in page.inner_text("#result-body")
+
+
+def test_stale_error_clears_once_the_problem_is_fixed(page):
+    page.click("#optimize", force=True)
+    assert page.locator("#optimize-note ~ .msg.error").is_visible()
+    paste(page, UBQ)
+    assert page.locator("#optimize-note ~ .msg.error").is_hidden()
+
+
+def test_copy_failure_is_reported_not_swallowed(page):
+    run_example(page)
+    page.evaluate("Object.defineProperty(navigator, 'clipboard', {value: {writeText: () => Promise.reject(new Error('denied'))}, configurable: true})")
+    page.click("text=Copy DNA")
+    page.wait_for_selector("text=We couldn't copy that automatically")
+
+
+def test_remove_region_buttons_have_distinct_names(page):
+    paste(page, "MKTAYIAKQRQISFVKS" + "GGGGSGGGGS" + "HFSRQLEERLGLIEVQ" + "SSSSSGGGGG" + "APILSRVGDGTQ")
+    page.click("text=Advanced settings")
+    labels = page.locator("table.regions button").evaluate_all("els => els.map(e => e.getAttribute('aria-label'))")
+    assert labels == ["Remove region 1", "Remove region 2"]
+
+
+def test_loading_state_takes_focus_and_can_be_cancelled(page):
+    page.route("**/api/optimize", lambda route: None)   # hold the request open so the loading state is stable
+    paste(page, UBQ)
+    page.click("#optimize")
+    page.wait_for_selector(".loading:not([hidden])")
+    assert page.evaluate("document.activeElement.classList.contains('loading')")
+    page.click(".loading button:has-text('Cancel')")
+    assert page.evaluate("document.activeElement.id") == "optimize"
+
+
+def test_result_tabs_have_a_labelled_tab_panel(page):
+    paste(page, UBQ)
+    page.check("input[value=human]")
+    page.click("#optimize"); page.wait_for_selector(".tab", timeout=180000)
+    assert page.get_attribute("#result-body", "role") == "tabpanel"
+    assert page.get_attribute("#result-body", "aria-labelledby") == "tab-0"
+    page.click(".tab >> nth=1")
+    assert page.get_attribute("#result-body", "aria-labelledby") == "tab-1"

@@ -173,5 +173,55 @@ def test_bad_input_is_rejected(kwargs):
         find_parts("e_coli_k12", **kwargs)
 
 
+def test_regulation_comes_from_registry_tags_and_orders_always_on_first(data):
+    names = by_name(data)
+    assert pf.regulation_kind(names["BBa_J23100"]) == "constitutive"
+    assert pf.regulation_kind(names["BBa_R0040"]) == "regulated"       # //regulation/negative (TetR repressible)
+    assert pf.regulation_kind(names["BBa_R0010"]) == "regulated"
+    assert pf.regulation_kind(names["BBa_B0034"]) is None               # not a promoter
+    assert pf.regulation_kind({"kind": "promoter", "regulation": []}) == "unknown"
+    assert pf.regulation_kind({"kind": "promoter", "regulation": ["//regulation/constitutive", "//regulation/negative"]}) == "regulated"
+    rank = {"constitutive": 0, "unknown": 1, "regulated": 2}
+    groups = {}
+    for p in find_parts("e_coli_k12", kinds=("promoter",), top=10)["results"]["promoter"]["parts"]:
+        key = (p["status"] == "Available", any("matches your target" in r for r in p["reasons"]))
+        groups.setdefault(key, []).append(rank[p["regulation"]])
+    assert all(v == sorted(v) for v in groups.values())                 # within a group, always-on comes first
+
+
+def test_only_promoters_carry_a_regulation_label():
+    r = find_parts("e_coli_k12", top=3)["results"]
+    assert all(p["regulation"] in ("constitutive", "regulated", "unknown") for p in r["promoter"]["parts"])
+    assert all(p["regulation"] is None for k in ("rbs", "terminator") for p in r[k]["parts"])
+
+
 def test_kinds_subset():
     assert set(find_parts("e_coli_k12", kinds=("rbs",))["results"]) == {"rbs"}
+
+
+def test_rbs_options_are_real_short_available_ecoli_parts(data):
+    opts = pf.rbs_options("e_coli_bl21_de3")
+    names = by_name(data)
+    assert opts and len(opts) <= 8
+    for o in opts:
+        src = names[o["name"]]
+        assert o["dna"] == src["sequence"] and len(o["dna"]) <= 30 and src["status"] == "Available"
+        assert any("ecoli" in t for t in src["chassis"])
+    b0034 = next(o for o in opts if o["name"] == "BBa_B0034")
+    assert b0034["dna"] == "AAAGAGGAGAAA"                       # the value that used to be hardcoded
+
+
+def test_find_parts_exposes_sequence_for_verification(data):
+    for block in find_parts("e_coli_k12", top=3)["results"].values():
+        for p in block["parts"]:
+            assert p["sequence"] == by_name(data)[p["name"]]["sequence"]
+
+
+def test_t7_promoters_carry_the_polymerase_caution():
+    part = next(p for p in pf.load_dataset()["parts"] if p["kind"] == "promoter" and "T7" in p["short_desc"]
+                and not any(s in p["sequence"] for s in ILLEGAL))
+    c = pf._candidate(part, None, None, {}, False)
+    assert any("T7 RNA polymerase" in r for r in pf._explain(c, None))
+    other = next(p for p in pf.load_dataset()["parts"] if p["kind"] == "promoter" and "T7" not in p["short_desc"]
+                 and not any(s in p["sequence"] for s in ILLEGAL))
+    assert not any("T7" in r for r in pf._explain(pf._candidate(other, None, None, {}, False), None))

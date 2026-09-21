@@ -76,6 +76,19 @@ def level_hint(short_desc: str) -> dict | None:
     return {"level": found[0][0], "word": found[0][1].lower(), "source": "part description text"}
 
 
+def regulation_kind(part: dict) -> str | None:
+    """Promoters only, from the Registry's //regulation tags: 'constitutive'
+    (always on), 'regulated' (needs an inducer or repressor), else 'unknown'."""
+    if part["kind"] != "promoter":
+        return None
+    tags = set(part.get("regulation", []))
+    if tags == {"//regulation/constitutive"}:
+        return "constitutive"
+    if tags & {"//regulation/negative", "//regulation/positive", "//regulation/multiple"}:
+        return "regulated"
+    return "unknown"
+
+
 def rfc10_status(sequence: str, avoid_type_iis: bool = False) -> dict:
     report = validate_rfc10(sequence)  # same scanner Part 1 uses
     bad = [c.enzyme for c in report.hard_failures]
@@ -101,7 +114,8 @@ def _candidate(part: dict, chassis_tag: str | None, target: str | None, strength
     hint = level_hint(part["short_desc"])
     verified = strengths.get(part["name"])
     match = bool(target and hint and hint["level"] == target)
-    return {"part": part, "rfc": rfc, "evidence": evidence, "hint": hint, "verified": verified, "match": match}
+    return {"part": part, "rfc": rfc, "evidence": evidence, "hint": hint, "verified": verified, "match": match,
+            "regulation": regulation_kind(part)}
 
 
 def _sort_key(c: dict):
@@ -110,7 +124,9 @@ def _sort_key(c: dict):
     raise rank: one part's number can't be compared to your target level."""
     p = c["part"]
     return (
-        -int(p["status"] == "Available"), -int(c["match"]), -int(c["evidence"] == "tagged"),
+        -int(p["status"] == "Available"), -int(c["match"]),
+        {"constitutive": 0, "unknown": 1, "regulated": 2, None: 1}[c["regulation"]],   # always-on first: works without an inducer
+        -int(c["evidence"] == "tagged"),
         {"Works": 0, "": 1, "None": 1, "Issues": 2, "Fails": 3}.get(p["works"], 1),
         -(p["uses"] or 0), p["name"],
     )
@@ -124,6 +140,12 @@ def _explain(c: dict, target: str | None) -> list[str]:
                 "not_recorded": "No host is recorded for this part, so compatibility is not confirmed",
                 "not_requested": "No host filter applied"}[c["evidence"]])
     out.append("Registry status: Available" if p["status"] == "Available" else f"Registry status: {p['status']} (not currently available)")
+    if c["regulation"] == "constitutive":
+        out.append("Constitutive promoter: on without an inducer")
+    elif c["regulation"] == "regulated":
+        out.append("Regulated promoter: needs the right inducer or repressor to switch on")
+    if p["kind"] == "promoter" and re.search(r"\bT7\b", p["short_desc"]):
+        out.append("Description mentions T7: T7 promoters only work in cells that make T7 RNA polymerase (BL21(DE3) does, K-12 does not)")
     if p["works"] in ("Works", "Issues", "Fails"):
         out.append(f"Registry 'results' field: {p['works']}")
     if p["uses"]:
@@ -166,6 +188,7 @@ def find_parts(host: str, standard: str = "RFC10", level: str | None = None, top
             "considered": sum(1 for p in data["parts"] if p["kind"] == kind), "passing_filters": len(cands),
             "parts": [{
                 "name": c["part"]["name"], "registry_url": registry_url(c["part"]["name"]), "status": c["part"]["status"],
+                "sequence": c["part"]["sequence"], "regulation": c["regulation"],
                 "description": c["part"]["short_desc"], "chassis_evidence": c["evidence"],
                 "expression": {
                     "estimate": None,
@@ -181,7 +204,7 @@ def find_parts(host: str, standard: str = "RFC10", level: str | None = None, top
     result["warnings"] = _warnings(result["results"])
     result["dataset"] = {"source": data["source"], "parts_in_extract": data["count"]}
     result["limitations"] = [
-        "Ordering uses availability, a stated level in the description, host tag, Registry results and community use. It is not a strength prediction.",
+        "Ordering uses availability, a stated level in the description, always-on promoters first, host tag, Registry results and community use. It is not a strength prediction.",
         "Junctions between parts are not scanned for new cut sites; run the assembled sequence through the RFC10 check.",
     ]
     return result
@@ -202,3 +225,13 @@ def check_cds(cds: str) -> dict:
     """RFC10 status of the user's CDS (Part 1 scanner), so the finder can say whether the gene itself is compatible."""
     r = validate_rfc10(cds)
     return {"ok": r.passed, "illegal_sites": [c.enzyme for c in r.hard_failures], "warnings": [c.enzyme for c in r.warnings]}
+
+
+def rbs_options(host: str, max_length: int = 30, limit: int = 8) -> list[dict]:
+    """Short RBS sequences for the 'start of your gene' picker: Available,
+    RFC10-clean, host-tagged parts from the same ranking Part Finder uses."""
+    block = find_parts(host, kinds=("rbs",), top=10)["results"]["rbs"]["parts"]
+    return [
+        {"name": p["name"], "dna": p["sequence"], "registry_url": p["registry_url"], "description": p["description"]}
+        for p in block if p["status"] == "Available" and p["chassis_evidence"] == "tagged" and len(p["sequence"]) <= max_length
+    ][:limit]

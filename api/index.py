@@ -15,7 +15,7 @@ from plasmid_design.codon_usage import (  # noqa: E402
     load_codon_table,
 )
 from plasmid_design.design import design_cds  # noqa: E402
-from plasmid_design.part_finder import PartFinderError, check_cds, find_parts  # noqa: E402
+from plasmid_design.part_finder import PartFinderError, check_cds, find_parts, rbs_options  # noqa: E402
 from plasmid_design.optimize import (  # noqa: E402
     DEFAULT_GC_BOUNDS,
     MAX_PROTEIN_LENGTH,
@@ -236,6 +236,15 @@ def part_finder():
             return jsonify({"error": "cds must contain only A, C, G, T"}), 400
         result["cds_rfc10"] = check_cds(cds)
     return jsonify(result)
+
+
+@app.route("/api/rbs-options", methods=["GET"])
+def rbs_options_route():
+    """RBS parts (with DNA) for the start-of-gene picker, straight from the Registry extract."""
+    try:
+        return jsonify({"host": request.args.get("host", ""), "parts": rbs_options(request.args.get("host", ""))})
+    except PartFinderError as exc:
+        return jsonify({"error": str(exc), "parts": []}), 400
 
 
 @app.route("/api/health", methods=["GET"])

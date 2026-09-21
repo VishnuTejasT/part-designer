@@ -24,6 +24,7 @@ rows = db.execute(f"""
   order by part_name""").fetchall()
 parts = [{
     "name": n, "kind": k, "status": s, "chassis": sorted(set(re.findall(r"//chassis/[a-z0-9_/]*[a-z0-9_]", c or ""))),
+    "regulation": sorted(set(re.findall(r"//regulation/[a-z0-9_/]*[a-z0-9_]", c or ""))),
     "works": w or "", "uses": u if isinstance(u, int) and u >= 0 else None, "sequence": q.strip().upper(),
     "short_desc": (d or "")[:100], "registry_id": pid,
 } for n, k, s, c, w, u, q, d, pid in rows]

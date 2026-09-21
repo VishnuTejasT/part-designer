@@ -115,13 +115,9 @@
       skip: "Not sure / skip",
       paste: "Paste my own DNA",
       pasteLabel: "Your start-of-gene DNA",
-      partsGroup: "Classic iGEM parts",
+      partsGroup: "Registry RBS parts for your host",
+      partsNone: "No Registry RBS parts are listed for this host yet.",
     },
-    // Classic parts, shown with their sequence so a lead can verify them.
-    // TODO(team): confirm this list and who verifies the sequences.
-    parts: [
-      { id: "BBa_B0034", name: "BBa_B0034 (strong ribosome binding site)", dna: "AAAGAGGAGAAA" },
-    ],
     vectorAtg: {
       label: "My vector already provides the start codon (ATG)",
       help: "Tick this if your plasmid adds the ATG for you.",
@@ -245,6 +241,7 @@
     server: "Something went wrong on our side. Your settings are saved, so you can try again.",
     offline: "You're offline. Reconnect and try again.",
     tryAgain: "Try again",
+    removeRegion: "Remove region {n}",
     copyError: "Copy error details",
     problems: "{n} problems found",
     problemsOne: "1 problem found",
@@ -298,10 +295,41 @@
     allowStem: "Allow longer hairpins ({value} letters) and re-run",
     allowStart: "Allow a less open start ({value}) and re-run",
     keep: "Keep this result",
-    kept: "Kept. This result still has the problem shown above.",
+    kept: "Kept. This result still has the problem described above.",
+    copyFailed: "We couldn't copy that automatically. Select the text and copy it yourself.",
   };
 
   // Checklist rows: plain name, technical name, result templates, meaning.
+  S.parts = {
+    title: "Find parts for this gene",
+    intro: "We look up promoters, ribosome binding sites and terminators from the iGEM Registry that pass the BioBrick (RFC10) check.",
+    honest: "We can't predict how much protein a part makes. The Registry has no measured strength for almost all parts, so we don't guess.",
+    levelLabel: "How much protein do you want?",
+    levels: { any: "No preference", low: "Less", moderate: "A medium amount", high: "More" },
+    levelHelp: "Only used when a part's own description says strong, weak or medium.",
+    find: "Find parts",
+    finding: "Looking up parts",
+    kinds: { promoter: "Promoters", rbs: "Ribosome binding sites", terminator: "Terminators" },
+    counts: "{p} of {c} parts passed our checks",
+    none: "No parts passed the checks for this host.",
+    available: "In the Registry stock",
+    notAvailable: "Not currently in stock",
+    hostTagged: "Made for your host",
+    hostUnknown: "Host not recorded",
+    why: "Why this part",
+    viewRegistry: "View in the Registry",
+    strengthNone: "No measured strength on file",
+    regulation: { constitutive: "Always on (no inducer needed)", regulated: "Needs an inducer or repressor to switch on", unknown: "Switching not recorded" },
+    strengthKnown: "Measured strength: {value} {unit}",
+    hintText: "Description says {word} (not a measurement)",
+    cdsBad: "Your gene has a cut site that RFC10 doesn't allow ({sites}). Fix it before assembling.",
+    cdsOk: "Your gene passes the RFC10 check.",
+    unsupported: "We don't have Registry host tags for this organism yet, so we can't match parts to it.",
+    limits: "We don't check the joins between parts for new cut sites. Run the whole assembled DNA through the check.",
+    source: "Registry data: {file}, checksum {sha}",
+    error: "Couldn't look up parts. Try again in a moment.",
+  };
+
   S.checks = {
     protein_identity: {
       name: "Your protein is made correctly", tech: "Protein identity",

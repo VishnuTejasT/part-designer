@@ -45,7 +45,7 @@
     temperature: "37", temperatureEdited: false, hedge: false, seed: "",
     limits: { cai: "", mfe: "", gcMin: "", gcMax: "", stem: "" },
     advOpen: false, overrides: {}, seedUsed: null, running: false,
-    lastReport: null, lastRequests: null, activeTab: 0,
+    lastReport: null, lastRequests: null, activeTab: 0, startParts: [],
   };
   var an = L.analyzeProtein("", {});
   var refs = {};
@@ -95,6 +95,11 @@
       document.body.appendChild(ta); ta.select();
       try { document.execCommand("copy") ? resolve() : reject(); } catch (e) { reject(e); } finally { document.body.removeChild(ta); }
     });
+  }
+
+  function copyWithFeedback(text, msgEl, okText) {
+    return copyText(text).then(function () { msgEl.textContent = okText; setTimeout(function () { msgEl.textContent = ""; }, 2500); })
+      .catch(function () { msgEl.textContent = S.results.copyFailed; });
   }
 
   /* =====================================================================
@@ -222,7 +227,9 @@
     return h("div", { class: "msg " + kind }, h("span", { class: "ico", "aria-hidden": "true" }, ico), h("span", null, text),
       actions && actions.length ? h("span", { class: "actions" }, actions) : null);
   }
+  function clearFormError() { if (refs.formError) refs.formError.hidden = true; }
   function onProteinChange() {
+    clearFormError();
     an = L.analyzeProtein(state.raw, { maxLength: api.max_protein_length, chosenRecord: state.chosenRecord });
     clear(refs.msgs);
     var n = an.sequence.replace(/\*/g, "").length;
@@ -271,10 +278,11 @@
 
   /* ---------- step 2 / 3 updates ---------- */
   function onHostsChange() {
+    clearFormError();
     state.hosts = HOST_IDS.filter(function (hid) { return refs.hostCards[hid].input.checked; });
     refs.hostError.hidden = state.hosts.length > 0; if (!state.hosts.length) refs.hostError.textContent = S.errors.noHost;
     refs.tabsNote.hidden = state.hosts.length <= 3;
-    syncTemperature(); updateBadge();
+    syncTemperature(); updateBadge(); refreshStartParts();
   }
   function filterHosts() {
     var q = refs.search.value.trim().toLowerCase(), any = false;
@@ -298,9 +306,8 @@
     refs.startSelect = h("select", { id: "start-choice" });
     refs.startSelect.appendChild(h("option", { value: "skip" }, A.start.skip));
     refs.startSelect.appendChild(h("option", { value: "paste" }, A.start.paste));
-    var og = h("optgroup", { label: A.start.partsGroup });
-    A.parts.forEach(function (p) { og.appendChild(h("option", { value: "part:" + p.id }, p.name + " — " + p.dna)); });
-    refs.startSelect.appendChild(og);
+    refs.startGroup = h("optgroup", { label: A.start.partsGroup });
+    refs.startSelect.appendChild(refs.startGroup);
     refs.startPaste = h("input", { type: "text", id: "start-paste", autocomplete: "off", spellcheck: "false", "aria-describedby": "start-paste-err" });
     refs.startPasteErr = h("div", { class: "field-error", id: "start-paste-err", hidden: true });
     refs.startPasteNote = h("div", { class: "msg note", hidden: true });
@@ -475,6 +482,20 @@
       gcMax: String(Math.round(d.gc_max * 100)), stem: String(d.longest_allowed_stem) };
     Object.keys(map).forEach(function (k) { if (refs.lim && refs.lim[k]) refs.lim[k].setAttribute("placeholder", map[k]); });
   }
+  function refreshStartParts() {
+    var host = state.hosts[0];
+    if (!host || !refs.startGroup) return;
+    fetch("/api/rbs-options?host=" + encodeURIComponent(host)).then(function (r) { return r.json(); }).then(function (d) {
+      if (state.hosts[0] !== host) return; // the user picked another host meanwhile
+      state.startParts = d.parts || [];
+      clear(refs.startGroup);
+      state.startParts.forEach(function (p) { refs.startGroup.appendChild(h("option", { value: "part:" + p.name }, p.name + " \u2014 " + p.dna)); });
+      if (!state.startParts.length) refs.startGroup.appendChild(h("option", { value: "", disabled: true }, S.advanced.start.partsNone));
+      if (state.startChoice.indexOf("part:") === 0 && !state.startParts.some(function (p) { return "part:" + p.name === state.startChoice; })) {
+        state.startChoice = "skip"; refs.startSelect.value = "skip"; updateBadge();
+      } else refs.startSelect.value = state.startChoice;
+    }).catch(function () { /* keep the current list */ });
+  }
   function syncTemperature() {
     if (!refs.temp) return;
     var temps = suggestedTemps(), mixed = temps.some(function (t) { return t !== temps[0]; });
@@ -573,7 +594,7 @@
         h("td", { "data-label": S.advanced.regions.start }, num("start")),
         h("td", { "data-label": S.advanced.regions.end }, num("end")),
         h("td", { "data-label": S.advanced.regions.type }, sel),
-        h("td", null, h("button", { type: "button", onclick: function () { state.regions.splice(i, 1); state.regionsEdited = true; renderRegions(); updateBadge(); } }, S.advanced.regions.remove)));
+        h("td", null, h("button", { type: "button", "aria-label": F(S.errors.removeRegion, { n: i + 1 }), onclick: function () { state.regions.splice(i, 1); state.regionsEdited = true; renderRegions(); updateBadge(); } }, S.advanced.regions.remove)));
       refs.regionBody.appendChild(tr);
       refs.regionBody.appendChild(h("tr", { hidden: !errs[i], "data-err": String(i) }, h("td", { colspan: "4" }, err)));
     });
@@ -614,7 +635,7 @@
     var startDna = "";
     if (state.startChoice === "paste") startDna = L.validateStartDna(state.startPaste).dna || "";
     else if (state.startChoice.indexOf("part:") === 0) {
-      var part = S.advanced.parts.filter(function (p) { return "part:" + p.id === state.startChoice; })[0]; startDna = part ? part.dna : "";
+      var part = state.startParts.filter(function (p) { return "part:" + p.name === state.startChoice; })[0]; startDna = part ? part.dna : "";
     }
     var lim = {
       cai: state.limits.cai, mfe: state.limits.mfe, stem: state.limits.stem,
@@ -668,6 +689,7 @@
 
   var controller = null, timer = null;
   function run(fresh) {
+    if (state.running) return;
     var seedCheck = L.validateSeed(state.seed);
     if (fresh || state.seedUsed === null) state.seedUsed = seedCheck.value !== null ? seedCheck.value : Math.floor(Math.random() * 1e6) + 1;
     var requests = L.buildRequests(collectState(), api.defaults);
@@ -683,7 +705,7 @@
       renderResults(); showView("results");
     }).catch(function (err) {
       showLoading(false);
-      if (err && err.name === "AbortError") { announce(S.loading.cancelled); return; }
+      if (err && err.name === "AbortError") { announce(S.loading.cancelled); refs.optimize.focus(); return; }
       showRunError(err);
     });
   }
@@ -699,6 +721,7 @@
     var t0 = Date.now();
     function tick() { var s = Math.floor((Date.now() - t0) / 1000); elapsed.textContent = F(S.loading.elapsed, { s: s }); if (s >= 60) slow.hidden = false; }
     tick(); timer = setInterval(tick, 1000);
+    refs.loading.setAttribute("tabindex", "-1"); refs.loading.focus();
     announce(S.loading.title);
   }
   function showRunError(err) {
@@ -710,12 +733,12 @@
     var detail = (err && (err.userMessage || err.message)) || "";
     refs.formError.appendChild(h("span", { class: "actions" },
       h("button", { type: "button", onclick: function () { run(false); } }, S.errors.tryAgain),
-      h("button", { type: "button", onclick: function () { copyText(detail + "\n" + JSON.stringify(state.lastRequests)); } }, S.errors.copyError)));
+      h("button", { type: "button", onclick: function () { copyText(detail + "\n" + JSON.stringify(state.lastRequests)).catch(function () { announce(S.results.copyFailed); }); } }, S.errors.copyError)));
     showView("form"); announce(text);
   }
   function copyApiRequest() {
     var reqs = L.buildRequests(collectState(), api.defaults);
-    copyText(JSON.stringify(reqs.length === 1 ? reqs[0] : reqs, null, 2)).then(function () { refs.copyMsg.textContent = S.advanced.developerOptions.copied; setTimeout(function () { refs.copyMsg.textContent = ""; }, 2500); });
+    copyWithFeedback(JSON.stringify(reqs.length === 1 ? reqs[0] : reqs, null, 2), refs.copyMsg, S.advanced.developerOptions.copied);
   }
 
   /* =====================================================================
@@ -732,6 +755,7 @@
     var report = state.lastReport; clear(refs.results);
     var tabs = null;
     var body = h("div", { id: "result-body" });
+    if (report.sequences.length > 1) { body.setAttribute("role", "tabpanel"); body.setAttribute("aria-labelledby", "tab-" + state.activeTab); }
     if (report.sequences.length > 1) {
       tabs = h("div", { class: "tabs", role: "tablist", "aria-label": S.results.summary });
       report.sequences.forEach(function (seq, i) {
@@ -750,6 +774,7 @@
   function selectTab(i) {
     state.activeTab = i;
     Array.prototype.forEach.call(refs.results.querySelectorAll(".tab"), function (t, j) { t.setAttribute("aria-selected", String(j === i)); t.tabIndex = j === i ? 0 : -1; });
+    if (refs.body.getAttribute("role") === "tabpanel") refs.body.setAttribute("aria-labelledby", "tab-" + i);
     renderSequence(); announce(seqTitle(state.lastReport.sequences[i]));
   }
   function summaryTable(report) {
@@ -787,7 +812,7 @@
     });
     var copyMsg = h("span", { class: "muted small", role: "status" });
     var tools = h("div", { class: "row seq-tools" },
-      h("button", { type: "button", onclick: function () { copyText(seq.dna).then(function () { copyMsg.textContent = S.results.copied; setTimeout(function () { copyMsg.textContent = ""; }, 2500); }); } }, S.results.copyDna),
+      h("button", { type: "button", onclick: function () { copyWithFeedback(seq.dna, copyMsg, S.results.copied); } }, S.results.copyDna),
       h("button", { type: "button", onclick: function () { download(L.fastaText(an.name || "optimized_sequence", seq.dna), "optimized_sequence.fasta"); } }, S.results.downloadFasta),
       toggle, copyMsg);
     var dna = h("div", { class: "dna", role: "group", "aria-label": S.results.dnaCaption });
@@ -815,13 +840,65 @@
 
     // fix panel
     var fix = L.fixPanel(seq, report.limits_used);
-    if (fix && !seq._kept) body.appendChild(fixPanel(fix, seq));
+    if (fix && seq._kept) body.appendChild(msgEl("warn", "\u26A0", S.results.kept));
+    else if (fix) body.appendChild(fixPanel(fix, seq));
+    body.appendChild(partFinderPanel(seq));
+  }
+  function partFinderPanel(seq) {
+    var P = S.parts, out = h("div", { class: "parts-out" }), status = h("p", { class: "muted", role: "status" });
+    var sel = h("select", { id: "pf-level" });
+    ["any", "low", "moderate", "high"].forEach(function (k) { sel.appendChild(h("option", { value: k }, P.levels[k])); });
+    var btn = h("button", { type: "button", class: "primary" }, P.find);
+    btn.addEventListener("click", function () {
+      if (btn.getAttribute("aria-disabled") === "true") return;
+      btn.setAttribute("aria-disabled", "true"); status.textContent = P.finding; clear(out);
+      var body = { host: seq.host, top: 5, cds: seq.dna }; if (sel.value !== "any") body.level = sel.value;
+      fetch("/api/part-finder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (x) {
+          btn.removeAttribute("aria-disabled"); status.textContent = "";
+          if (!x.ok) { out.appendChild(msgEl("error", "\u2716", /chassis tag/.test(x.d.error || "") ? P.unsupported : (x.d.error || P.error))); return; }
+          renderParts(out, x.d);
+        })
+        .catch(function () { btn.removeAttribute("aria-disabled"); status.textContent = ""; out.appendChild(msgEl("error", "\u2716", P.error)); });
+    });
+    return h("div", { class: "panel", id: "part-finder" }, h("h2", null, P.title), h("p", { class: "help" }, P.intro),
+      msgEl("info", "\u2139", P.honest),
+      h("div", { class: "field" }, h("label", { class: "label", for: "pf-level" }, P.levelLabel), h("p", { class: "help" }, P.levelHelp), sel),
+      h("div", { class: "row" }, btn, status), out);
+  }
+  function renderParts(out, d) {
+    var P = S.parts;
+    if (d.cds_rfc10) out.appendChild(d.cds_rfc10.ok ? msgEl("note", "\u2713", P.cdsOk) : msgEl("error", "\u2716", F(P.cdsBad, { sites: d.cds_rfc10.illegal_sites.join(", ") })));
+    (d.warnings || []).forEach(function (w) { out.appendChild(msgEl("warn", "\u26A0", w)); });
+    ["promoter", "rbs", "terminator"].forEach(function (kind) {
+      var block = d.results[kind]; if (!block) return;
+      out.appendChild(h("h3", { style: "margin-top:20px" }, P.kinds[kind]));
+      out.appendChild(h("p", { class: "help" }, F(P.counts, { p: block.passing_filters, c: block.considered })));
+      if (!block.parts.length) { out.appendChild(h("p", { class: "muted" }, P.none)); return; }
+      out.appendChild(h("ul", { class: "partlist" }, block.parts.map(function (part) {
+        var avail = part.status === "Available", e = part.expression;
+        var strength = e.verified_strength ? F(P.strengthKnown, { value: e.verified_strength.value, unit: e.verified_strength.unit }) : P.strengthNone;
+        var lines = [strength]; if (part.regulation) lines.unshift(P.regulation[part.regulation]);
+        if (e.level_hint) lines.push(F(P.hintText, { word: "\u2018" + e.level_hint.word + "\u2019" }));
+        return h("li", { class: "part" },
+          h("div", { class: "row between", style: "margin:0" },
+            h("a", { href: part.registry_url, target: "_blank", rel: "noopener" }, part.name, h("span", { class: "sr-only" }, " " + P.viewRegistry)),
+            h("span", { class: "pill " + (avail ? "pass" : "review") }, h("span", { "aria-hidden": "true" }, avail ? "\u2713" : "\u26A0"), avail ? P.available : P.notAvailable)),
+          part.description ? h("p", { class: "help", style: "margin:2px 0" }, part.description) : null,
+          h("p", { class: "small", style: "margin:2px 0" }, part.chassis_evidence === "tagged" ? P.hostTagged : P.hostUnknown, " \u00B7 ", lines.join(" \u00B7 ")),
+          part.sequence.length <= 60 ? h("p", { class: "dna small", style: "margin:2px 0;overflow-wrap:anywhere" }, part.sequence) : null,
+          h("details", null, h("summary", null, P.why), h("ul", null, part.reasons.map(function (r) { return h("li", null, r); }))));
+      })));
+    });
+    out.appendChild(h("p", { class: "help", style: "margin-top:16px" }, P.limits));
+    out.appendChild(h("p", { class: "help" }, F(P.source, { file: d.dataset.source.file, sha: d.dataset.source.sha256.slice(0, 12) })));
   }
   function fixPanel(fix, seq) {
     var msg = h("p", { class: "help", role: "status" });
     var row = h("div", { class: "row" }, fix.buttons.map(function (b) {
       return h("button", { type: "button", onclick: function () {
-        if (b.keep) { seq._kept = true; msg.textContent = S.results.kept; renderSequence(); announce(S.results.kept); return; }
+        if (b.keep) { seq._kept = true; renderSequence(); announce(S.results.kept); return; }
         state.overrides = Object.assign({}, state.overrides, b.override); showView("form"); run(false);
       } }, b.label);
     }));
@@ -870,7 +947,7 @@
     add(app, [h("header", { class: "top" }, h("h1", null, S.app.title), h("a", { href: "/glossary" }, S.app.glossaryLink)),
       buildForm(seen), refs.results, h("footer", { class: "page" }, S.app.privacy), refs.live]);
     if (load("pd_adv") === "1") setAdvanced(true);
-    onProteinChange(); onGoalChange(); renderChips(); updateBadge(); showLimitDefaults();
+    onProteinChange(); onGoalChange(); renderChips(); updateBadge(); showLimitDefaults(); refreshStartParts();
     fetch("/api/limits").then(function (r) { return r.json(); }).then(function (d) { api = d; onProteinChange(); syncTemperature(); showLimitDefaults(); }).catch(function () { /* keep built-in defaults */ });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
