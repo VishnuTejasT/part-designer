@@ -15,6 +15,7 @@ from plasmid_design.codon_usage import (  # noqa: E402
     load_codon_table,
 )
 from plasmid_design.design import design_cds  # noqa: E402
+from plasmid_design.vectorizer import VectorizerError, assemble  # noqa: E402
 from plasmid_design.part_finder import PartFinderError, check_cds, find_parts, rbs_options  # noqa: E402
 from plasmid_design.optimize import (  # noqa: E402
     DEFAULT_GC_BOUNDS,
@@ -245,6 +246,21 @@ def rbs_options_route():
         return jsonify({"host": request.args.get("host", ""), "parts": rbs_options(request.args.get("host", ""))})
     except PartFinderError as exc:
         return jsonify({"error": str(exc), "parts": []}), 400
+
+
+@app.route("/api/vectorize", methods=["POST"])
+def vectorize():
+    """Assemble backbone + promoter + RBS + CDS + terminator (RFC10) and check the whole plasmid.
+    Body: {promoter, rbs, terminator, cds, backbone?, avoid_type_iis?}"""
+    p = request.get_json(silent=True) or {}
+    missing = [k for k in ("promoter", "rbs", "terminator", "cds") if not p.get(k)]
+    if missing:
+        return jsonify({"error": f"missing: {', '.join(missing)}"}), 400
+    try:
+        return jsonify(assemble(p["promoter"], p["rbs"], p["cds"], p["terminator"], backbone=p.get("backbone") or "pSB1C3",
+                                avoid_type_iis=bool(p.get("avoid_type_iis", False))))
+    except VectorizerError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @app.route("/api/health", methods=["GET"])

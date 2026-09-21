@@ -91,3 +91,11 @@ def test_part_finder_endpoint(client):
                                   {"host": "e_coli_k12", "level": "extreme"}, {"host": "e_coli_k12", "cds": "ATGXX"}])
 def test_part_finder_rejects_bad_input(client, body):
     assert client.post("/api/part-finder", json=body).status_code == 400
+
+
+def test_vectorize_endpoint(client):
+    body = {"promoter": "BBa_J23100", "rbs": "BBa_B0034", "terminator": "BBa_B0015", "cds": "ATGAAAGTTCTGGCGTAA"}
+    d = client.post("/api/vectorize", json=body).get_json()
+    assert d["junction_check"]["ok"] and d["size"]["total_bp"] == 2070 + len(d["insert"]) and d["fasta"].startswith(">construct_")
+    assert client.post("/api/vectorize", json={**body, "rbs": "BBa_J23100"}).status_code == 400
+    assert client.post("/api/vectorize", json={"promoter": "BBa_J23100"}).status_code == 400

@@ -34,3 +34,15 @@ doc = {"schema": 1, "source": {"kind": "iGEM Registry SQL dump (parts_bbdb)", "f
 with gzip.open(out, "wt", encoding="utf-8", compresslevel=9) as f:
     json.dump(doc, f, separators=(",", ":"))
 print(out, len(parts), "parts")
+
+
+# ---- backbones (start with pSB1C3), same dump, same provenance ------------------------------------
+BACKBONES = ("pSB1C3",)
+bb = db.execute(
+    f"select part_name, sequence, short_desc, part_id, status from parts where part_name in ({','.join('?' * len(BACKBONES))})",
+    BACKBONES).fetchall()
+with open("data/registry/backbones.json", "w") as f:
+    json.dump({"schema": 1, "source": doc["source"], "backbones": [
+        {"name": n, "sequence": q.strip().upper(), "length": len(q.strip()), "description": d, "registry_id": pid, "status": s}
+        for n, q, d, pid, s in bb]}, f, indent=1)
+print("data/registry/backbones.json", [b[0] for b in bb])
