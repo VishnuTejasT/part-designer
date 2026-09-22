@@ -402,6 +402,30 @@ def test_build_needs_one_of_each_kind(page):
     assert "pick one of each kind" in page.inner_text(".build-result")
 
 
+# ---- Hero: examples, legend, recent projects ----------------------------------------------
+def test_hero_example_loads_a_real_protein_and_cta_focuses_the_textarea(page):
+    page.click("text=Insulin, A chain")
+    assert page.input_value("#protein") == "GIVEQCCTSICSLYQLENYCN"
+    page.click("text=Design my plasmid")
+    assert page.evaluate("document.activeElement.id") == "protein"
+
+
+def test_hero_legend_defines_the_five_plasmid_parts(page):
+    text = page.inner_text("text=Plasmid parts, in plain English >> xpath=..")
+    for term in ("Promoter (Start Switch)", "RBS (Volume Knob)", "CDS (Gene Instructions)", "Terminator (Stop Sign)", "Resistance Marker (Selection)"):
+        assert term in text
+
+
+def test_recent_projects_appears_after_a_run_and_reloads_the_sequence(page):
+    assert page.locator("text=Recent projects").is_visible() is False
+    run_example(page)
+    page.click("text=Edit settings")
+    page.wait_for_selector("text=Recent projects")
+    page.fill("#protein", "")
+    page.click("text=Load:")
+    assert page.input_value("#protein") == UBQ
+
+
 def test_new_seed_button_reruns_with_a_different_number(page):
     paste(page, UBQ)
     page.click("text=Advanced settings")

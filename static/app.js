@@ -103,6 +103,61 @@
   }
 
   /* =====================================================================
+     HERO (orientation strip shown above the form: hero CTA, real examples,
+     how-this-works, plain-English legend, and a browser-only recent list)
+     ===================================================================== */
+  var RECENT_KEY = "pd_recent";
+  function loadRecents() {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch (e) { return []; }
+  }
+  function saveRecent(protein) {
+    var list = loadRecents().filter(function (r) { return r.protein !== protein; });
+    list.unshift({ protein: protein, ts: Date.now() });
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 5))); } catch (e) { /* private mode */ }
+    renderRecent();
+  }
+  function recentLabel(protein) {
+    var n = protein.replace(/\*/g, "").length;
+    return protein.slice(0, 18) + (protein.length > 18 ? "…" : "") + " (" + n + " aa)";
+  }
+  function renderRecent() {
+    if (!refs.recentBox) return;
+    var list = loadRecents();
+    clear(refs.recentList);
+    refs.recentBox.hidden = list.length === 0;
+    list.forEach(function (r) {
+      var btn = h("button", { type: "button", class: "link", onclick: function () {
+        setProtein(r.protein); refs.ta.scrollIntoView({ block: "center" }); refs.ta.focus();
+      } }, S.home.recentLoad + ": " + recentLabel(r.protein));
+      refs.recentList.appendChild(h("li", null, btn));
+    });
+  }
+  function heroSection() {
+    var H = S.home;
+    var examples = h("div", { class: "row" }, H.examples.map(function (ex) {
+      return h("button", { type: "button", onclick: function () { setProtein(ex.protein); refs.ta.scrollIntoView({ block: "center" }); refs.ta.focus(); } },
+        ex.name, " ", h("span", { class: "muted small" }, "(" + ex.note + ")"));
+    }));
+    var stages = h("dl", { class: "techlist" });
+    H.stages.forEach(function (s) { stages.appendChild(h("dt", null, s.title)); stages.appendChild(h("dd", null, s.desc)); });
+    var legend = h("dl", { class: "techlist" });
+    H.legend.forEach(function (l) { legend.appendChild(h("dt", null, l.term)); legend.appendChild(h("dd", null, l.desc)); });
+    refs.recentList = h("ul", { style: "list-style:none;padding:0;margin:0" });
+    refs.recentBox = h("div", { class: "field", hidden: true },
+      h("h3", null, H.recentTitle), h("p", { class: "help" }, H.recentNote), refs.recentList,
+      h("button", { type: "button", class: "link", onclick: function () { try { localStorage.removeItem(RECENT_KEY); } catch (e) {} renderRecent(); } }, H.recentClear));
+
+    return h("div", { class: "panel" },
+      h("h2", { style: "margin-top:0" }, H.heroTitle),
+      h("p", { class: "help", style: "font-size:1rem" }, H.heroSub),
+      h("div", { class: "row" }, h("button", { type: "button", class: "primary", onclick: function () { refs.ta.scrollIntoView({ block: "center" }); refs.ta.focus(); } }, H.heroCta)),
+      h("div", { class: "field" }, h("p", { class: "label" }, H.examplesLabel), examples),
+      refs.recentBox,
+      h("div", { class: "field" }, h("h3", null, H.howTitle), stages),
+      h("div", { class: "field" }, h("h3", null, H.legendTitle), legend));
+  }
+
+  /* =====================================================================
      FORM
      ===================================================================== */
   function buildForm(seen) {
@@ -216,7 +271,7 @@
     refs.advPanel = h("div", { class: "panel adv-panel", id: "adv-panel", hidden: true });
     buildAdvanced(refs.advPanel);
 
-    add(root, [step1, step2, step3, refs.actions, refs.loading, adv, refs.advPanel]);
+    add(root, [heroSection(), step1, step2, step3, refs.actions, refs.loading, adv, refs.advPanel]);
     return root;
   }
 
@@ -702,6 +757,7 @@
     })).then(function (reports) {
       state.lastReport = L.mergeReports(reports); state.activeTab = 0; showLoading(false);
       try { localStorage.setItem("pd_seen", "1"); } catch (e) { /* ignore */ }
+      saveRecent(an.sequence.replace(/\*/g, ""));
       renderResults(); showView("results");
     }).catch(function (err) {
       showLoading(false);
@@ -1024,7 +1080,7 @@
     add(app, [h("header", { class: "top" }, h("h1", null, S.app.title), h("a", { href: "/glossary" }, S.app.glossaryLink)),
       buildForm(seen), refs.results, h("footer", { class: "page" }, S.app.privacy), refs.live]);
     if (load("pd_adv") === "1") setAdvanced(true);
-    onProteinChange(); onGoalChange(); renderChips(); updateBadge(); showLimitDefaults(); refreshStartParts();
+    onProteinChange(); onGoalChange(); renderChips(); updateBadge(); showLimitDefaults(); refreshStartParts(); renderRecent();
     fetch("/api/limits").then(function (r) { return r.json(); }).then(function (d) { api = d; onProteinChange(); syncTemperature(); showLimitDefaults(); }).catch(function () { /* keep built-in defaults */ });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();

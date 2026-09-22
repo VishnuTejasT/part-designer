@@ -26,6 +26,38 @@
       "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
   };
 
+  // Hero / orientation copy shown above the form, plus the plain-English
+  // parts legend and the browser-only "recent projects" list.
+  S.home = {
+    heroTitle: "Turn a protein into DNA a cell can read.",
+    heroSub: "Paste your protein below, or start from a real one. Nothing is saved on our server.",
+    heroCta: "Design my plasmid",
+    examplesLabel: "Start from a real protein:",
+    examples: [
+      { name: "Ubiquitin", note: "76 amino acids", protein: S.app.exampleProtein },
+      { name: "Insulin, A chain", note: "21 amino acids", protein: "GIVEQCCTSICSLYQLENYCN" },
+      { name: "Insulin, B chain", note: "30 amino acids", protein: "FVNQHLCGSHLVEALYLVCGERGFFYTPKT" },
+    ],
+    howTitle: "How this tool works",
+    stages: [
+      { title: "1. Protein to DNA", desc: "Paste a protein. We choose DNA letters a cell reads well and check it for problems." },
+      { title: "2. Matching parts", desc: "We find real promoter, RBS and terminator parts from the iGEM Registry that fit." },
+      { title: "3. Full plasmid", desc: "We join your gene with those parts and check the whole plasmid before you order it." },
+    ],
+    legendTitle: "Plasmid parts, in plain English",
+    legend: [
+      { term: "Promoter (Start Switch)", desc: "Tells the cell where to start reading your gene." },
+      { term: "RBS (Volume Knob)", desc: "Sets how much protein the cell makes." },
+      { term: "CDS (Gene Instructions)", desc: "Your gene: the instructions for the protein itself." },
+      { term: "Terminator (Stop Sign)", desc: "Tells the cell where reading ends." },
+      { term: "Resistance Marker (Selection)", desc: "Lets you find cells that took up the plasmid." },
+    ],
+    recentTitle: "Recent projects",
+    recentNote: "Saved only in this browser. We don't send this list to our server.",
+    recentLoad: "Load",
+    recentClear: "Clear list",
+  };
+
   S.steps = {
     protein: {
       label: "1. Paste your protein sequence.",
@@ -466,6 +498,10 @@
     var out = [];
     var push = function (x) { if (typeof x === "string" && x) out.push(x); };
     push(S.app.intro); push(S.app.belowButton); push(S.app.privacy); push(S.app.optimizeDisabledTip);
+    push(S.home.heroTitle); push(S.home.heroSub); push(S.home.examplesLabel); push(S.home.howTitle);
+    S.home.stages.forEach(function (s) { push(s.title); push(s.desc); });
+    push(S.home.legendTitle);
+    S.home.legend.forEach(function (l) { push(l.term); push(l.desc); });
     push(S.steps.protein.label); push(S.steps.protein.help);
     push(S.steps.host.label); push(S.steps.host.help);
     push(S.steps.goal.label); push(S.steps.natural.label);
