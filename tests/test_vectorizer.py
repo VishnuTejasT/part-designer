@@ -101,6 +101,21 @@ def test_insert_beyond_the_clonal_synthesis_limit_is_flagged():
     assert real(cds="ATG" + "GCT" * 2400 + "TAA")["synthesis"]["beyond_clonal_gene_limit"] is True
 
 
+def test_ready_to_order_is_a_single_gate_over_the_real_checks():
+    r = real()
+    assert r["ready_to_order"] == {"ok": True, "blockers": [], "note": "Nothing here blocks ordering this construct as designed."}
+    big = real(cds="ATG" + "GCT" * 2400 + "TAA")
+    assert big["ready_to_order"]["ok"] is False
+    assert any("7,000 bp" in b for b in big["ready_to_order"]["blockers"])
+
+
+def test_ready_to_order_blocks_on_a_junction_violation(monkeypatch):
+    patch_parts(monkeypatch, P_SYN="AAAACTAG")
+    r = assemble("P_SYN", "BBa_B0034", CDS, "BBa_B0015")
+    assert r["ready_to_order"]["ok"] is False
+    assert any("join" in b for b in r["ready_to_order"]["blockers"])
+
+
 @pytest.mark.parametrize("kwargs,match", [
     ({"cds": "ATGXXTAA"}, "A, C, G, T"), ({"cds": "ATGAAATA"}, "whole number of codons"), ({"cds": "AAAAAATAA"}, "start with ATG"),
     ({"backbone": "pUC19"}, "Unknown backbone"),

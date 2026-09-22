@@ -330,7 +330,7 @@
     cdsBad: "Your gene has a cut site that RFC10 doesn't allow ({sites}). Fix it before assembling.",
     cdsOk: "Your gene passes the RFC10 check.",
     unsupported: "We don't have Registry host tags for this organism yet, so we can't match parts to it.",
-    limits: "We don't check the joins between parts for new cut sites. Run the whole assembled DNA through the check.",
+    limits: "As soon as parts are found, we join the top-ranked ones with your gene below and check the whole plasmid, including the joins.",
     source: "Registry data: {file}, checksum {sha}",
     error: "Couldn't look up parts. Try again in a moment.",
   };
@@ -368,6 +368,10 @@
     sourceLabels: ["Registry: RFC10 standard", "Registry: scars", "Twist: sequence limits"],
     error: "Couldn't build the plasmid. Try again in a moment.",
     kind: { promoter: "Promoter", rbs: "Ribosome binding site", terminator: "Terminator", cds: "Your gene", scar: "Scar" },
+    readyTitle: "Ready to order?",
+    readyYes: "Yes — nothing here blocks ordering this construct as designed.",
+    readyNo: "Not yet — this construct has a problem to fix first:",
+    autoNote: "Built automatically from the top-ranked part in each list above. Pick different parts and press “Build the plasmid” to re-check.",
   };
 
   S.checks = {

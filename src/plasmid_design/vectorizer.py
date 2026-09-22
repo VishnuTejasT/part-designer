@@ -99,6 +99,16 @@ def assemble(promoter: str, rbs: str, cds: str, terminator: str, backbone: str =
     lo, hi = min(win), max(win)
     gc = gc_content(insert) * 100
     total = len(full)
+    beyond_clonal = len(insert) > TWIST_CLONAL_MAX_BP
+    twist_high_complexity = lo < TWIST_WINDOW_GC[0] or hi > TWIST_WINDOW_GC[1]
+    junction_ok = not violations and not type_iis
+    blockers = []
+    if not junction_ok:
+        blockers.append("A restriction site or cut site shows up where two parts join.")
+    if twist_high_complexity:
+        blockers.append("A 50 bp window is outside 10-90% GC, which Twist calls high-complexity.")
+    if beyond_clonal:
+        blockers.append("The insert is longer than a standard 7,000 bp clonal gene order.")
     return {
         "backbone": {"name": backbone, "length": len(B), "description": bbs[backbone]["description"],
                      "registry_id": bbs[backbone]["registry_id"], "source": bbs[backbone]["source"],
@@ -106,7 +116,7 @@ def assemble(promoter: str, rbs: str, cds: str, terminator: str, backbone: str =
         "layout": layout, "scars": {"standard": SCAR_STANDARD, "rbs_to_cds": SCAR_RBS_CDS},
         "insert": insert, "sequence": full, "fasta": f">construct_{backbone}_insert\n" + "\n".join(full[i:i + 60] for i in range(0, total, 60)) + "\n",
         "junction_check": {
-            "ok": not violations and not type_iis, "violations": violations, "type_iis_sites": type_iis,
+            "ok": junction_ok, "violations": violations, "type_iis_sites": type_iis,
             "note": "Checks the whole circular plasmid and ignores only the sites the empty backbone already has."},
         "size": {"total_bp": total, "insert_bp": len(insert), "backbone_bp": len(B),
                  "within_studied_range": total <= SIZE_STUDY_MAX_BP,
@@ -119,7 +129,11 @@ def assemble(promoter: str, rbs: str, cds: str, terminator: str, backbone: str =
                "outside_project_range": not PROJECT_GC_RANGE[0] <= gc <= PROJECT_GC_RANGE[1],
                "twist_note": "Twist calls a sequence high-complexity if a 50 bp window is below 10% or above 90% GC.",
                "project_note": "30-70% is this project's design range, not a vendor limit.", "source": SOURCES["synthesis"]},
-        "synthesis": {"insert_bp": len(insert), "beyond_clonal_gene_limit": len(insert) > TWIST_CLONAL_MAX_BP,
+        "synthesis": {"insert_bp": len(insert), "beyond_clonal_gene_limit": beyond_clonal,
                       "note": "Twist clonal genes are 300-7,000 bp.", "source": SOURCES["synthesis"]},
+        "ready_to_order": {
+            "ok": not blockers, "blockers": blockers,
+            "note": ("Nothing here blocks ordering this construct as designed." if not blockers else
+                     "This construct isn't ready to order yet.")},
         "sources": SOURCES,
     }

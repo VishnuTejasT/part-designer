@@ -893,7 +893,16 @@
       h("h2", null, B.title), h("p", { class: "help" }, B.intro), h("div", { class: "row" }, btn, status), result);
   }
   function renderBuild(out, d) {
-    var B = S.build, g = d.gc, s = d.size, j = d.junction_check;
+    var B = S.build, g = d.gc, s = d.size, j = d.junction_check, ready = d.ready_to_order;
+    out.appendChild(h("p", { class: "help" }, B.autoNote));
+    if (ready) {
+      out.appendChild(h("h3", { style: "margin-top:0" }, B.readyTitle));
+      if (ready.ok) out.appendChild(msgEl("note", "✓", B.readyYes));
+      else {
+        out.appendChild(msgEl("error", "✖", B.readyNo));
+        out.appendChild(h("ul", null, ready.blockers.map(function (b) { return h("li", null, b); })));
+      }
+    }
     out.appendChild(h("p", { class: "help" }, F(B.backbone, { name: d.backbone.name, bp: d.backbone.length, desc: d.backbone.description })));
     if (j.ok) out.appendChild(msgEl("note", "\u2713", B.junctionOk));
     else {
@@ -954,7 +963,10 @@
           h("details", null, h("summary", null, P.why), h("ul", null, part.reasons.map(function (r) { return h("li", null, r); }))));
       })));
     });
-    out.appendChild(buildPanel(out, seq));
+    var bp = buildPanel(out, seq);
+    out.appendChild(bp);
+    var autoBtn = bp.querySelector("button");
+    if (autoBtn) autoBtn.click();
     out.appendChild(h("p", { class: "help", style: "margin-top:16px" }, P.limits));
     out.appendChild(h("p", { class: "help" }, F(P.source, { file: d.dataset.source.file, sha: d.dataset.source.sha256.slice(0, 12) })));
   }
