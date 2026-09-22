@@ -45,7 +45,7 @@
     temperature: "37", temperatureEdited: false, hedge: false, seed: "",
     limits: { cai: "", mfe: "", gcMin: "", gcMax: "", stem: "" },
     advOpen: false, overrides: {}, seedUsed: null, running: false,
-    lastReport: null, lastRequests: null, activeTab: 0, startParts: [],
+    lastReport: null, lastRequests: null, activeTab: 0, startParts: [], mainTab: "design",
   };
   var an = L.analyzeProtein("", {});
   var refs = {};
@@ -824,6 +824,7 @@
         tabs.appendChild(t);
       });
     }
+    state.mainTab = "design";
     add(refs.results, [tabs, body, report.sequences.length > 1 ? summaryTable(report) : null, resultsFooter()]);
     refs.body = body; renderSequence();
   }
@@ -832,6 +833,36 @@
     Array.prototype.forEach.call(refs.results.querySelectorAll(".tab"), function (t, j) { t.setAttribute("aria-selected", String(j === i)); t.tabIndex = j === i ? 0 : -1; });
     if (refs.body.getAttribute("role") === "tabpanel") refs.body.setAttribute("aria-labelledby", "tab-" + i);
     renderSequence(); announce(seqTitle(state.lastReport.sequences[i]));
+  }
+  /* Design/Assemble: a second-level tab pair inside each host's result body, so
+     you can flip between the DNA checklist and part-picking without losing
+     whatever the Part Finder or Build panel is mid-way through. */
+  function mainTabNav() {
+    var K = ["design", "assemble"];
+    refs.mainTabButtons = {};
+    var nav = h("div", { class: "tabs", role: "tablist", "aria-label": S.results.mainTabsLabel });
+    K.forEach(function (k, i) {
+      var btn = h("button", { type: "button", role: "tab", class: "tab", id: "maintab-" + k,
+        "aria-selected": String(state.mainTab === k), "aria-controls": k + "-body", tabindex: state.mainTab === k ? "0" : "-1" },
+        k === "design" ? S.results.tabDesign : S.results.tabAssemble);
+      btn.addEventListener("click", function () { selectMainTab(k); btn.focus(); });
+      btn.addEventListener("keydown", function (e) {
+        var to = e.key === "ArrowRight" || e.key === "ArrowLeft" ? K[(i + 1) % 2] : e.key === "Home" ? K[0] : e.key === "End" ? K[1] : null;
+        if (to) { e.preventDefault(); selectMainTab(to); refs.mainTabButtons[to].focus(); }
+      });
+      refs.mainTabButtons[k] = btn;
+      nav.appendChild(btn);
+    });
+    return nav;
+  }
+  function selectMainTab(tab) {
+    state.mainTab = tab;
+    if (refs.designBody) refs.designBody.hidden = tab !== "design";
+    if (refs.assembleBody) refs.assembleBody.hidden = tab !== "assemble";
+    if (refs.mainTabButtons) Object.keys(refs.mainTabButtons).forEach(function (k) {
+      refs.mainTabButtons[k].setAttribute("aria-selected", String(k === tab)); refs.mainTabButtons[k].tabIndex = k === tab ? 0 : -1;
+    });
+    announce(tab === "design" ? S.results.tabDesign : S.results.tabAssemble);
   }
   function summaryTable(report) {
     var tb = h("tbody");
@@ -854,7 +885,12 @@
   var CHECK_TERMS = { start_stop: ["stop"], cut_sites: ["cutsite"], rare_codons: ["rare"], codon_score: ["cai"], synthesis: ["synthesis", "repeat", "gc"], start_region: ["rbs"], hairpins: ["hairpin", "fold"] };
 
   function renderSequence() {
-    var report = state.lastReport, seq = report.sequences[state.activeTab], body = clear(refs.body);
+    var report = state.lastReport, seq = report.sequences[state.activeTab];
+    clear(refs.body);
+    refs.designBody = h("div", { id: "design-body", role: "tabpanel", "aria-labelledby": "maintab-design", hidden: state.mainTab !== "design" });
+    refs.assembleBody = h("div", { id: "assemble-body", role: "tabpanel", "aria-labelledby": "maintab-assemble", hidden: state.mainTab !== "assemble" });
+    add(refs.body, [mainTabNav(), refs.designBody, refs.assembleBody]);
+    var body = refs.designBody;
     var banner = L.bannerText(seq);
     body.appendChild(h("div", { class: "banner " + (banner.ok ? "ok" : "some"), tabindex: "-1", role: "status" },
       h("span", { "aria-hidden": "true" }, banner.ok ? "✓" : "⚠"), h("span", null, banner.text)));
@@ -899,7 +935,7 @@
     var fix = L.fixPanel(seq, report.limits_used);
     if (fix && seq._kept) body.appendChild(msgEl("warn", "\u26A0", S.results.kept));
     else if (fix) body.appendChild(fixPanel(fix, seq));
-    body.appendChild(partFinderPanel(seq));
+    refs.assembleBody.appendChild(partFinderPanel(seq));
   }
   function partFinderPanel(seq) {
     var P = S.parts, out = h("div", { class: "parts-out" }), status = h("p", { class: "muted", role: "status" });

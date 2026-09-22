@@ -134,9 +134,9 @@ def test_multi_host_gives_tabs_and_summary(page):
     paste(page, UBQ)
     page.check("input[value=human]")
     page.click("#optimize")
-    page.wait_for_selector(".tab", timeout=180000)
-    assert page.locator(".tab").count() == 2
-    page.click(".tab >> nth=1")
+    page.wait_for_selector('[aria-label="Summary"] .tab', timeout=180000)
+    assert page.locator('[aria-label="Summary"] .tab').count() == 2
+    page.click('[aria-label="Summary"] .tab >> nth=1')
     assert "Human cells" in page.inner_text("#result-body h2 >> nth=0")
     assert page.locator("table.stack tbody tr").count() == 2
 
@@ -221,6 +221,8 @@ def test_axe_no_critical_or_serious_issues(browser, base_url, scheme):
     scan("form with advanced open")
     pg.click("#optimize"); pg.wait_for_selector(".banner", timeout=120000)
     scan("results")
+    pg.click("text=Assemble")
+    scan("results, assemble tab")
     pg.click("#part-finder button.primary"); pg.wait_for_selector(".partlist", timeout=30000)
     scan("results with part finder")
     pg.click("button:has-text('Build the plasmid')"); pg.wait_for_selector(".build-result table", timeout=30000)
@@ -251,6 +253,7 @@ def test_start_of_gene_options_come_from_the_registry_extract(page):
 
 def test_part_finder_lists_three_kinds_with_honest_notes_and_provenance(page):
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary")
     page.wait_for_selector(".partlist", timeout=30000)
     panel = page.inner_text("#part-finder")
@@ -268,6 +271,7 @@ def test_part_finder_lists_three_kinds_with_honest_notes_and_provenance(page):
 
 def test_part_finder_explains_why_a_part_was_chosen(page):
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
     page.locator("#part-finder details >> nth=0").locator("summary").click()
     assert "Passes the RFC10 check" in page.locator("#part-finder details >> nth=0").inner_text()
@@ -278,6 +282,7 @@ def test_part_finder_says_plainly_when_a_host_has_no_registry_tag(page):
     page.click("summary:has-text('More organisms')")
     page.check("input[value=c_reinhardtii]")
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary")
     page.wait_for_selector("#part-finder .msg.error")
     assert "don't have Registry host tags for this organism" in page.inner_text("#part-finder")
@@ -330,15 +335,16 @@ def test_loading_state_takes_focus_and_can_be_cancelled(page):
 def test_result_tabs_have_a_labelled_tab_panel(page):
     paste(page, UBQ)
     page.check("input[value=human]")
-    page.click("#optimize"); page.wait_for_selector(".tab", timeout=180000)
+    page.click("#optimize"); page.wait_for_selector('[aria-label="Summary"] .tab', timeout=180000)
     assert page.get_attribute("#result-body", "role") == "tabpanel"
     assert page.get_attribute("#result-body", "aria-labelledby") == "tab-0"
-    page.click(".tab >> nth=1")
+    page.click('[aria-label="Summary"] .tab >> nth=1')
     assert page.get_attribute("#result-body", "aria-labelledby") == "tab-1"
 
 
 def find_parts_and_build(page):
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
     page.click("button:has-text('Build the plasmid')"); page.wait_for_selector(".build-result table")
 
@@ -368,6 +374,7 @@ def test_built_plasmid_copy_and_download_match_the_api_sequence(page):
 
 def test_the_selected_parts_are_the_ones_sent_to_the_builder(page):
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
     second = page.locator("input[name=pf-rbs] >> nth=1")
     second.check()
@@ -380,6 +387,7 @@ def test_the_selected_parts_are_the_ones_sent_to_the_builder(page):
 
 def test_a_junction_failure_is_shown_with_its_position_and_join_label(page):
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
     fake = {"backbone": {"name": "pSB1C3", "length": 2070, "description": "x"}, "insert": "A" * 20, "sequence": "ACGT" * 30, "fasta": ">c\nACGT\n",
             "junction_check": {"ok": False, "type_iis_sites": [], "violations": [{"enzyme": "SpeI", "start": 2100, "end": 2105, "at_junction": True}]},
@@ -396,6 +404,7 @@ def test_a_junction_failure_is_shown_with_its_position_and_join_label(page):
 
 def test_build_needs_one_of_each_kind(page):
     run_example(page)
+    page.click("text=Assemble")
     page.click("#part-finder button.primary"); page.wait_for_selector(".partlist")
     page.evaluate("document.querySelectorAll('input[name=pf-rbs]').forEach(e => e.checked = false)")
     page.click("button:has-text('Build the plasmid')")
