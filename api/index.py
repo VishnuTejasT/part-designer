@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from flask import Flask, abort, jsonify, request, send_from_directory  # noqa: E402
+from flask import Flask, Response, abort, jsonify, request, send_from_directory  # noqa: E402
 
 from plasmid_design.codon_usage import (  # noqa: E402
     CodonUsageError,
@@ -16,6 +16,7 @@ from plasmid_design.codon_usage import (  # noqa: E402
 )
 from plasmid_design.design import design_cds  # noqa: E402
 from plasmid_design.vectorizer import VectorizerError, assemble  # noqa: E402
+from plasmid_design.gene_order import GeneOrderError, fill_order_template  # noqa: E402
 from plasmid_design.part_finder import PartFinderError, check_cds, find_parts, rbs_options  # noqa: E402
 from plasmid_design.optimize import (  # noqa: E402
     DEFAULT_GC_BOUNDS,
@@ -261,6 +262,24 @@ def vectorize():
                                 avoid_type_iis=bool(p.get("avoid_type_iis", False))))
     except VectorizerError as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/gene-order", methods=["POST"])
+def gene_order():
+    """Fill one row of the lab's GenScript gene-synthesis quote template with a
+    built construct's insert sequence and return the .xlsx for download.
+    Body: {gene_name, insert, host_id, host_title, backbone, ready_ok?, blockers?}"""
+    p = request.get_json(silent=True) or {}
+    missing = [k for k in ("gene_name", "insert", "host_id", "host_title", "backbone") if not p.get(k)]
+    if missing:
+        return jsonify({"error": f"missing: {', '.join(missing)}"}), 400
+    try:
+        xlsx = fill_order_template(p["gene_name"], p["insert"], p["host_title"], p["host_id"], p["backbone"],
+                                    {"ok": bool(p.get("ready_ok", False)), "blockers": p.get("blockers") or []})
+    except GeneOrderError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return Response(xlsx, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     headers={"Content-Disposition": "attachment; filename=gene_synthesis_order.xlsx"})
 
 
 @app.route("/api/health", methods=["GET"])

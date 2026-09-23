@@ -407,6 +407,10 @@
     readyYes: "Yes — nothing here blocks ordering this construct as designed.",
     readyNo: "Not yet — this construct has a problem to fix first:",
     autoNote: "Built automatically from the top-ranked part in each list above. Pick different parts and press “Build the plasmid” to re-check.",
+    orderHelp: "Fill this gene into our lab's gene-synthesis order form, ready to send to the vendor.",
+    orderButton: "Download gene order form (.xlsx)",
+    orderFilling: "Filling in the form",
+    orderError: "Couldn't fill the form. Try again in a moment.",
   };
 
   S.checks = {

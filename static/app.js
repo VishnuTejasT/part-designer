@@ -977,14 +977,36 @@
         .then(function (x) {
           btn.removeAttribute("aria-disabled"); status.textContent = "";
           if (!x.ok) { result.appendChild(msgEl("error", "\u2716", x.d.error || B.error)); return; }
-          renderBuild(result, x.d);
+          renderBuild(result, x.d, seq);
         })
         .catch(function () { btn.removeAttribute("aria-disabled"); status.textContent = ""; result.appendChild(msgEl("error", "\u2716", B.error)); });
     });
     return h("div", { class: "field", style: "border-top:1px solid var(--line);padding-top:16px;margin-top:24px" },
       h("h2", null, B.title), h("p", { class: "help" }, B.intro), h("div", { class: "row" }, btn, status), result);
   }
-  function renderBuild(out, d) {
+  function orderFormPanel(d, seq, ready) {
+    var B = S.build, msg = h("span", { class: "muted small", role: "status" });
+    var btn = h("button", { type: "button", onclick: function () {
+      btn.setAttribute("aria-disabled", "true"); msg.textContent = B.orderFilling;
+      fetch("/api/gene-order", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gene_name: (an.name || "construct") + "_" + d.backbone.name, insert: d.insert,
+          host_id: seq.host, host_title: hostName(seq.host), backbone: d.backbone.name,
+          ready_ok: ready.ok, blockers: ready.blockers,
+        }) })
+        .then(function (r) { return r.ok ? r.blob() : r.json().then(function (e) { throw new Error(e.error || B.error); }); })
+        .then(function (blob) {
+          btn.removeAttribute("aria-disabled"); msg.textContent = "";
+          var url = URL.createObjectURL(blob);
+          var a = h("a", { href: url, download: "gene_synthesis_order.xlsx" }); document.body.appendChild(a); a.click();
+          document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        })
+        .catch(function () { btn.removeAttribute("aria-disabled"); msg.textContent = B.orderError; });
+    } }, B.orderButton);
+    return h("div", { class: "field" },
+      h("p", { class: "help" }, B.orderHelp), h("div", { class: "row" }, btn, msg));
+  }
+  function renderBuild(out, d, seq) {
     var B = S.build, g = d.gc, s = d.size, j = d.junction_check, ready = d.ready_to_order;
     out.appendChild(h("p", { class: "help" }, B.autoNote));
     if (ready) {
@@ -994,6 +1016,7 @@
         out.appendChild(msgEl("error", "✖", B.readyNo));
         out.appendChild(h("ul", null, ready.blockers.map(function (b) { return h("li", null, b); })));
       }
+      out.appendChild(orderFormPanel(d, seq, ready));
     }
     out.appendChild(h("p", { class: "help" }, F(B.backbone, { name: d.backbone.name, bp: d.backbone.length, desc: d.backbone.description })));
     if (j.ok) out.appendChild(msgEl("note", "\u2713", B.junctionOk));
